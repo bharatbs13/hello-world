@@ -1,4 +1,4 @@
-# Relix FR-046 — Multi-Tenant Workspace UI & Administration
+# Relix FR-047 — Multi-Tenant Workspace UI & Administration
 
 ## Target Version
 
