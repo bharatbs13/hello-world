@@ -1,4 +1,3 @@
-````md id="tx8q41"
 # Relix FR-038 — Topology Graph Visualization
 
 ## Target Version
@@ -109,4 +108,3 @@ Topology visualization must not:
 ## Architectural Rationale
 
 Topology visualization improves workflow understanding while keeping runtime execution independent of presentation logic.
-````
