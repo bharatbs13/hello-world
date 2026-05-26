@@ -1,4 +1,4 @@
-# Relix FR-045 — Multi-Tenant Workspace Isolation Framework
+# Relix FR-046 — Multi-Tenant Workspace Isolation Framework
 
 ## Target Version
 
