@@ -1,4 +1,4 @@
-FR-XXX — Workflow Recommendation & Optimization Agents
+FR-050 — Workflow Recommendation & Optimization Agents
 Target Version
 v0.6 Intelligent Platform
 
