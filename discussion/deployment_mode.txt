@@ -1,0 +1,397 @@
+Deployment mode discussion start v0.3
+
+Yes — you have three main deployment models, and the best long-term design is usually hybrid control-plane / customer data-plane.
+1. Full stack in customer cloud
+Customer Cloud
+├── Relix Control Plane
+├── Relix Runtime
+├── Relix Data Plane
+├── Connectors
+└── Customer DB access
+Pros:
+* Best for customer trust.
+* Data never leaves customer cloud.
+* Easier approval for regulated customers.
+Risks:
+* Python repo can be copied.
+* Harder to monitor usage.
+* Harder to enforce license.
+* Harder to decommission.
+Protection options:
+* Ship Docker images, not source code.
+* Private container registry.
+* License server heartbeat.
+* Signed licenses with expiry.
+* Feature flags controlled remotely.
+* Obfuscation is possible but not strong protection.
+* Keep proprietary intelligence / optimization in your cloud if possible.
+Best for:
+* Large enterprise.
+* Regulated customers.
+* Private deployments.
+2. Full deployment on your cloud
+Your Cloud
+├── Relix Control Plane
+├── Runtime
+├── Data Plane
+├── Agents
+└── Connects to customer DB
+Pros:
+* You control code.
+* Easy usage tracking.
+* Easy billing.
+* Easy updates.
+* Easy decommissioning.
+Risks:
+* Customer may not allow DB access from outside.
+* Data movement/security concerns.
+* Network/VPN/private link needed.
+* Harder for highly regulated customers.
+DB connectivity options:
+* Customer allowlists your IP.
+* VPN tunnel.
+* PrivateLink / VPC peering.
+* Customer deploys lightweight connector agent.
+* SSH tunnel is possible but less enterprise-grade.
+Best for:
+* SaaS customers.
+* Smaller teams.
+* Non-regulated workloads.
+* Early pilots.
+3. Hybrid: control plane on your cloud, data plane in customer cloud
+Your Cloud
+├── Relix Control Plane
+├── Admin UI
+├── Billing
+├── Licensing
+├── Intelligence
+├── Usage Metering
+└── Orchestration Commands
+
+Customer Cloud
+├── Relix Data Plane Agent
+├── Connectors
+├── Runtime Worker
+├── Local checkpoint/cache
+└── DB access
+This is the best enterprise model.
+Pros:
+* Customer data stays inside customer cloud.
+* You protect core SaaS/control code.
+* You can track usage.
+* You can decommission access.
+* Customer DB does not need to open inbound access to your cloud.
+* Works with private networks.
+Communication model:
+Customer Data Plane Agent
+        ↓ outbound HTTPS / mTLS
+Relix Control Plane
+Prefer outbound-only from customer cloud. Avoid requiring inbound access into customer network.
+Use:
+* mTLS
+* short-lived tokens
+* signed commands
+* command polling or message queue
+* customer-side execution logs
+* encrypted telemetry back to control plane
+Decommission:
+* disable tenant/license in your control plane
+* revoke agent token
+* revoke cert
+* stop accepting heartbeats
+* agent enters disabled mode
+* customer can uninstall local agent
+Usage tracking:
+* data-plane agent reports:
+    * workflow runs
+    * rows processed
+    * bytes processed
+    * connector usage
+    * runtime duration
+    * worker count
+    * failures/retries
+    * feature usage
+Recommended model
+Use all three as deployment tiers:
+Tier 1 — SaaS
+Full Relix on your cloud
+
+Tier 2 — Hybrid Enterprise
+Control plane on your cloud
+Data plane in customer cloud
+
+Tier 3 — Private Enterprise
+Full stack in customer cloud
+With license heartbeat
+Best default:
+Hybrid model
+Control plane = your cloud
+Data plane = customer cloud
+Outbound-only secure connection
+This gives the best balance of:
+IP protection       ✓
+Customer trust      ✓
+Usage visibility    ✓
+DB security         ✓
+Enterprise fit      ✓
+Decommissioning     ✓
+For Relix roadmap, I’d design deployment like this:
+v0.2–v0.4
+SaaS / single-cloud internal deployment
+
+v0.5
+Hybrid control-plane + customer data-plane
+
+v1.x
+Private enterprise deployment option
+Core rule:
+Control plane owns governance.
+Data plane owns local execution.
+Customer data stays near customer.
+Relix keeps licensing, usage, and orchestration control.
+
+
+You do not fully support all deployment modes yet with the current FR inventory. You are ~80–85% there. Most runtime pieces exist, but deployment itself is not yet a first-class concern.
+Current coverage:
+✓ Runtime abstraction
+✓ Multi-tenant
+✓ DWE
+✓ Telemetry
+✓ Reporting
+✓ Alerting
+✓ Admin control
+✓ Intelligence layer
+✓ Control/Data-plane concept (implicit)
+
+Missing:
+✗ Deployment registration
+✗ Deployment profile model
+✗ Control-plane ↔ data-plane contracts
+✗ Licensing
+✗ Usage metering
+✗ Secret/config provider abstraction
+✗ LLM provider abstraction
+✗ Deployment lifecycle management
+✗ Agent registry
+For all deployment modes:
+1. SaaS (your cloud)
+2. Hybrid (control plane + customer data plane)
+3. Private customer deployment
+I would add these FRs:
+v0.3–v0.4
+FR — Configuration & Secret Provider Abstraction
+Scope:
+Platform / Configuration
+Capabilities:
+* ConfigProvider interface
+* SecretProvider interface
+* Local provider
+* Vault provider
+* Cloud secret provider
+* environment abstraction
+Reason:
+Without this:
+customer cloud
+my cloud
+hybrid
+becomes hardcoded.
+ 
+⸻
+ 
+v0.5
+FR — Deployment Profile & Environment Framework
+Scope:
+Platform / Deployment
+Capabilities:
+* deployment_id
+* deployment_type
+* environment
+* region
+* deployment profile
+Example:
+deployment:
+    id: dep-001
+    type: hybrid
+    environment: production
+Needed for:
+SaaS
+Hybrid
+Private
+ 
+⸻
+ 
+FR — Control Plane / Data Plane Communication Framework
+Scope:
+Platform / Deployment Runtime
+Capabilities:
+* agent registration
+* outbound communication
+* command delivery
+* heartbeats
+* certificate auth
+* message contracts
+Architecture:
+Customer Data Plane
+        ↓ mTLS
+Control Plane
+Needed for hybrid mode.
+ 
+⸻
+ 
+FR — Usage Metering & Licensing Framework
+Scope:
+Platform / Commercial Runtime
+Capabilities:
+* tenant usage
+* rows processed
+* workflow count
+* connector usage
+* feature usage
+* license expiration
+* feature enablement
+Needed for:
+decommission
+billing
+private deployment
+ 
+⸻
+ 
+v0.6
+FR — LLM Provider & Agent Registry Framework
+Scope:
+Platform / Intelligence
+Capabilities:
+* LLM provider abstraction
+* model registry
+* agent registry
+* prompt versioning
+* provider configuration
+Example:
+OpenAI
+Azure OpenAI
+Anthropic
+Gemini
+Ollama
+ 
+⸻
+ 
+FR — AI Feature Governance Framework
+Scope:
+Platform / Intelligence Governance
+Capabilities:
+* enable agent
+* disable agent
+* solution-level agent configuration
+* connector-level agent configuration
+Admin UI:
+Migration:
+    topology_agent=ON
+
+BCR:
+    topology_agent=OFF
+ 
+⸻
+ 
+v1.x
+FR — Deployment Lifecycle Management Framework
+Scope:
+Platform / Deployment
+Capabilities:
+* deployment registration
+* deployment upgrade
+* deployment decommission
+* deployment health
+* deployment migration
+ 
+⸻
+ 
+Final deployment readiness:
+Current FR coverage: ~85%
+
+Add:
+
+v0.3
+    Config + Secret abstraction
+
+v0.5
+    Deployment profile
+    Control/Data plane communication
+    Usage + licensing
+
+v0.6
+    LLM provider registry
+    AI governance
+
+v1.x
+    Deployment lifecycle management
+After these additions:
+✓ SaaS deployment
+
+✓ Hybrid deployment
+
+✓ Private deployment
+
+✓ Multi-cloud
+
+✓ Customer cloud
+
+✓ Future LLM extensibility
+
+✓ Licensing/decommission
+
+✓ Usage visibility
+So the answer is: a few deployment-specific FRs are still missing; current features alone do not fully support all deployment modes.
+
+
+Here is the clean FR list for deployment-mode support.
+FR Title	Target Version
+FR-XXX — Configuration & Secret Provider Abstraction	v0.3
+FR-XXX — Deployment Profile & Environment Framework	v0.5
+FR-XXX — Control Plane / Data Plane Communication Framework	v0.5
+FR-XXX — Usage Metering & Licensing Framework	v0.5
+FR-XXX — LLM Provider & Agent Registry Framework	v0.6
+FR-XXX — AI Feature Governance Framework	v0.6
+FR-XXX — Deployment Lifecycle Management Framework	v1.x
+Recommended order:
+v0.3
+1. Configuration & Secret Provider Abstraction
+
+v0.5
+2. Deployment Profile & Environment Framework
+3. Control Plane / Data Plane Communication Framework
+4. Usage Metering & Licensing Framework
+
+v0.6
+5. LLM Provider & Agent Registry Framework
+6. AI Feature Governance Framework
+
+v1.x
+7. Deployment Lifecycle Management Framework
+This completes support for:
+- SaaS deployment
+- Hybrid control-plane/data-plane deployment
+- Full private customer deployment
+
+
+Yes. Start deployment-readiness FRs from v0.3, but keep them minimal and foundational.
+Your correction:
+v0.1–v0.2 = core/runtime/GTM execution
+v0.3 onward = deployment-mode readiness begins
+Add this to v0.3:
+FR-XXX — Configuration & Secret Provider Abstraction
+Target Version: v0.3
+Scope: Platform / Configuration / Security
+Then:
+v0.5
+- Deployment Profile & Environment Framework
+- Control Plane / Data Plane Communication Framework
+- Usage Metering & Licensing Framework
+
+v0.6
+- LLM Provider & Agent Registry Framework
+- AI Feature Governance Framework
+
+v1.x
+- Deployment Lifecycle Management Framework
+So yes — deployment support starts at v0.3, but real hybrid/private deployment capability comes in v0.5+.
+
