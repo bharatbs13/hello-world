@@ -1,0 +1,1357 @@
+Intelligence Layer discussion v0.6
+Intelligence-layer task list
+1. Text-to-Command Drafting
+User intent
+↓
+Agent converts text into structured command draft
+↓
+No execution yet
+2. Command Review
+Structured command draft
+↓
+Reviewer checks safety, scope, permissions, policy, ambiguity
+↓
+Approve / reject / request clarification
+3. Preflight Validation
+Approved command draft
+↓
+Run deterministic validators
+↓
+Check connector capability, policy, permissions, plan validity
+↓
+Pass / fail
+4. Execution Approval
+Preflight result
+↓
+Human approval if required
+↓
+Freeze command / workflow plan
+5. Execution
+Frozen approved command
+↓
+Runtime executes
+↓
+Agent does not execute directly
+Your example flow
+Text to DB Commands
+        ↓
+Review
+        ↓
+Preflight Validation
+        ↓
+Execution Approval
+        ↓
+Runtime Execution
+ASCII architecture
+User Text
+   |
+   v
++----------------------------+
+| Text-to-Command Agent      |
+| Converts natural language  |
+| into structured DB command |
++----------------------------+
+   |
+   v
++----------------------------+
+| Review Agent               |
+| Checks intent, risk,       |
+| policy, ambiguity          |
++----------------------------+
+   |
+   v
++----------------------------+
+| Preflight Validator        |
+| Deterministic checks:      |
+| - permissions              |
+| - connector capability     |
+| - destructive operation    |
+| - schema/table existence   |
++----------------------------+
+   |
+   v
++----------------------------+
+| Human Approval Gate        |
+| Required for risky or      |
+| destructive commands       |
++----------------------------+
+   |
+   v
++----------------------------+
+| Runtime Executor           |
+| Executes frozen command    |
++----------------------------+
+Core rule:
+Agent drafts.
+Reviewer reviews.
+Validator verifies.
+Human approves.
+Runtime executes.
+
+Yes. For DB/intelligence workflow, the next major task is Topology Discovery.
+Clean sequence:
+1. Text-to-Command Drafting
+        ↓
+2. Command Review
+        ↓
+3. Topology Discovery
+        ↓
+4. Preflight Validation
+        ↓
+5. Human Approval
+        ↓
+6. Frozen Plan
+        ↓
+7. Runtime Execution
+Topology discovery should happen before preflight, because preflight needs discovered facts:
+Topology Discovery finds:
+- source systems
+- target systems
+- schemas
+- tables
+- dependencies
+- row counts
+- PK/FK relationships
+- connector capabilities
+- data movement path
+- risk points
+Then preflight validates:
+Preflight checks:
+- permissions
+- capabilities
+- schema existence
+- destructive operation approval
+- compatibility
+- policy constraints
+- execution feasibility
+ASCII:
+User Intent
+   ↓
+Text-to-Command Agent
+   ↓
+Review Agent
+   ↓
+Topology Discovery
+   ↓
+Preflight Validator
+   ↓
+Human Approval Gate
+   ↓
+Frozen Execution Plan
+   ↓
+Runtime Executor
+Core rule:
+Discovery observes.
+Preflight validates.
+Runtime executes.
+
+Yes. Data type discovery on the source DB is part of Topology Discovery, specifically under schema/introspection discovery.
+Use this split:
+Topology Discovery
+├── System discovery
+├── Connector discovery
+├── Schema discovery
+├── Table discovery
+├── Column discovery
+├── Data type discovery
+├── Constraint discovery
+├── Relationship discovery
+└── Volume/statistics discovery
+For source DB:
+Source DB Data Type Discovery
+        ↓
+schemas
+        ↓
+tables
+        ↓
+columns
+        ↓
+source data types
+        ↓
+nullable / default / precision / scale / length
+        ↓
+PK / FK / unique constraints
+        ↓
+target compatibility mapping
+Then preflight uses it:
+Topology Discovery:
+Find source column types
+
+Preflight Validation:
+Check whether target supports them
+
+Execution Plan:
+Freeze mapped source → target types
+Example:
+source:
+amount NUMERIC(18,2)
+created_at TIMESTAMP WITH TIME ZONE
+payload JSONB
+
+preflight checks:
+NUMERIC(18,2) compatible?
+TIMESTAMPTZ compatible?
+JSONB supported by target?
+conversion required?
+lossy mapping?
+Core rule:
+Discovery observes source metadata.
+Preflight validates compatibility.
+Planner freezes mappings.
+Runtime executes only frozen mappings.
+
+
+Yes — and for Relix this should be human-reviewable but frozen before execution. Otherwise deterministic replay breaks.
+I would model it like this:
+Discovery
+    ↓
+Draft Discovery Model
+    ↓
+Human Review/Edit
+    ↓
+Validation
+    ↓
+Approved Discovery Snapshot
+    ↓
+Freeze
+    ↓
+Execution
+Split by object type:
+Human Review Layer
+├── Topology review
+└── Data type review
+Topology review:
+Editable:
+
+* table inclusion/exclusion
+* connector selection
+* relationship mappings
+* dependency ordering
+* schema filters
+* migration scope
+
+Not editable:
+
+* discovered source facts
+* connector capabilities
+* runtime invariants
+Example:
+Discovered:
+
+Customer
+   ↓
+Orders
+   ↓
+Payments
+
+User edits:
+
+Customer
+   ↓
+Orders
+
+Exclude:
+Payments
+ 
+⸻
+ 
+Data type review:
+Editable:
+
+* source→target mapping selection
+* conversion rules
+* truncation policy
+* precision policy
+* null handling policy
+* custom transformation selection
+
+Not editable:
+
+* discovered source datatype
+* source metadata facts
+Example:
+Discovered:
+
+salary NUMERIC(18,2)
+
+Suggested:
+
+NUMERIC(18,2)
+      ↓
+DECIMAL(18,2)
+
+User edits:
+
+NUMERIC(18,2)
+      ↓
+DOUBLE
+Then preflight validates:
+NUMERIC(18,2)
+      ↓
+DOUBLE
+
+Risk:
+
+precision loss detected
+approval required
+Then freeze:
+Approved Discovery Snapshot
+
+snapshot_id=disc_001
+revision_id=rev_004
+Runtime executes only:
+Frozen topology
+Frozen type mappings
+Frozen transformation rules
+I would add one FR because this is a distinct capability and not just a UI feature:
+FR-XXX — Discovery Review & Approval Framework
+
+Scope:
+Platform / Human Review
+
+Capabilities:
+
+* topology review
+* topology editing
+* datatype mapping review
+* datatype mapping editing
+* discovery snapshot versioning
+* approval workflow
+* freeze semantics
+
+Core Rule:
+
+Discovery observes.
+Humans review.
+Validators verify.
+Runtime executes frozen definitions.
+That fills a real gap between discovery → preflight → execution.
+
+Yes. That should be non-agentic mathematical optimization, separate from AI agents.
+It belongs before execution, after discovery/review, and before freeze.
+Discovery
+   ↓
+Topology / Type Review
+   ↓
+Mathematical Topology Optimization
+   ↓
+Validation
+   ↓
+Human Approval
+   ↓
+Freeze
+   ↓
+Runtime Execution
+What it optimizes:
+- table/task ordering
+- dependency-respecting execution plan
+- batching strategy
+- partitioning
+- parallelism level
+- critical path reduction
+- resource allocation
+- cutover sequence
+- checkpoint placement
+Possible algorithms:
+- DAG topological sort
+- critical path analysis
+- min-cost flow
+- bin packing
+- integer linear programming
+- constraint programming
+- heuristic scheduling
+Core rule:
+Optimizer proposes mathematically valid plan.
+Validator verifies constraints.
+Human approves.
+Runtime executes frozen plan.
+Add a separate FR:
+FR-XXX — Deterministic Topology Optimization Framework
+
+Target Version
+v0.6 or v1.x
+
+Scope
+Platform / Optimization
+
+Objective
+Optimize discovered workflow topology using deterministic mathematical algorithms, not agentic reasoning.
+
+Non-Goals
+- LLM-generated topology changes
+- autonomous runtime mutation
+- bypassing validation
+- bypassing human approval
+I would target v0.6 if it is single-workflow optimization, and v1.x if it depends on distributed workers.
+
+Correct. Then the flow should be:
+Discovery Snapshot
+        ↓
+Deterministic Math Optimizer
+        ↓
+Top-N Ranked Topology Candidates
+        ↓
+Synthetic Data Generation
+        ↓
+Sandbox Population
+        ↓
+Candidate Test Execution
+        ↓
+Telemetry + Reconciliation Results
+        ↓
+Benchmark Comparison
+        ↓
+Human Review / Selection
+        ↓
+Freeze Selected Topology
+        ↓
+Runtime Execution
+Core rule:
+Math ranks first.
+Experiments validate ranking.
+Human selects.
+Runtime executes frozen plan.
+So agent role is optional and secondary:
+Agent may explain results.
+Agent may summarize trade-offs.
+Agent must not rank authoritatively.
+Agent must not execute.
+Better FR title:
+FR-XXX — Deterministic Topology Ranking & Candidate Benchmarking Framework
+Not “agent topology suggestion.”
+Because authority is:
+Discovery facts
+   ↓
+Mathematical ranking
+   ↓
+Experimental evidence
+   ↓
+Human approval
+   ↓
+Frozen execution
+
+
+For Relix, avoid “agent for everything.” You already have a strong deterministic core. Agents should sit where there is ambiguity, explanation, recommendation, or human assistance — not where replay invariants or execution authority live.
+For your intelligence layer, I’d organize it like this:
+Knowledge / Telemetry / Historical Records
+                     ↓
+              Intelligence Layer
+                     ↓
+ ┌─────────────────────────────────────┐
+ │ Recommendation Agents              │
+ │ Analysis Agents                    │
+ │ Explanation Agents                 │
+ │ Human Assistance Agents            │
+ └─────────────────────────────────────┘
+                     ↓
+            Human Approval
+                     ↓
+                Freeze
+                     ↓
+                Runtime
+Potential agent tasks:
+Design / Planning
+1. Workflow Recommendation Agent
+Role:
+- suggest workflow structures
+- suggest reusable wrappers
+- suggest missing stages
+
+Input:
+- source systems
+- target systems
+- policies
+
+Output:
+- candidate workflow plans
+2. Dependency Analysis Agent
+Role:
+- detect missing dependencies
+- detect cycles
+- suggest ordering fixes
+3. Risk Analysis Agent
+Role:
+- estimate migration risk
+- detect destructive operations
+- identify weak configurations
+4. Topology Explanation Agent
+Role:
+- explain topology choices
+- explain tradeoffs
+
+Example:
+
+Topology A:
+higher throughput
+higher memory
+
+Topology B:
+slower
+safer
+ 
+⸻
+ 
+Discovery
+5. Topology Discovery Agent
+Role:
+- infer DB/application relationships
+- identify likely dependencies
+- infer parent-child structures
+6. Schema Semantics Agent
+Role:
+- identify probable business meaning
+
+Example:
+
+cust_id
+→ customer identifier
+
+txn_ts
+→ transaction timestamp
+7. Data Type Discovery Agent
+Role:
+- infer semantic types
+
+Example:
+
+varchar(10)
++ values like "2026-05-10"
+↓
+likely date
+ 
+⸻
+ 
+Validation / Preflight
+8. Preflight Explanation Agent
+Role:
+- explain failures
+
+Example:
+
+CDC requires WAL enabled
+Current source:
+WAL disabled
+9. Policy Explanation Agent
+Role:
+- explain governance violations
+10. Missing Configuration Agent
+Role:
+- identify missing settings
+ 
+⸻
+ 
+Optimization
+11. Workflow Optimization Agent
+Role:
+- suggest bottleneck improvements
+12. Capacity Recommendation Agent
+Role:
+- suggest worker capacity
+13. Connector Recommendation Agent
+Role:
+- suggest alternative connectors
+14. Checkpoint Recommendation Agent
+Role:
+- suggest checkpoint interval
+ 
+⸻
+ 
+Operations
+15. Root Cause Agent
+Role:
+- analyze failures
+- correlate signals
+16. Alert Triage Agent
+Role:
+- group related alerts
+- reduce noise
+17. Incident Summary Agent
+Role:
+- summarize incident timeline
+18. Runbook Agent
+Role:
+- suggest runbooks
+ 
+⸻
+ 
+Human assistance
+19. Text-to-Workflow Agent
+Role:
+- convert text into workflow
+
+Example:
+
+"Migrate PostgreSQL to Snowflake with CDC"
+
+↓
+draft workflow
+20. Text-to-DB Command Agent
+Role:
+- generate SQL drafts
+- human approval required
+21. Change Impact Agent
+Role:
+- estimate impact of modifications
+22. Reviewer Agent
+Role:
+- review plans before freeze
+ 
+⸻
+ 
+I would prioritize implementation:
+P1
+- Text-to-Workflow
+- Dependency Analysis
+- Risk Analysis
+- Preflight Explanation
+
+P2
+- Root Cause
+- Incident Summary
+- Workflow Optimization
+- Capacity Recommendation
+
+P3
+- Schema Semantics
+- Topology Discovery
+- Runbook
+- Change Impact
+Notice a pattern:
+Agents think
+Humans approve
+Runtime executes
+That keeps Relix deterministic while still making the intelligence layer useful.
+
+
+Agents should be mostly platform-level, with solution-specific adapters/prompts/tools, not separate orchestrators per solution.
+Core rule:
+One core orchestrator.
+Many solution wrappers.
+Shared agent framework.
+Solution-specific agent skills only where needed.
+Which agents help which solution
+Agent / Capability                  Migration   BCR   DR   Archival   Maintenance   Reconciliation   Data Quality
+---------------------------------------------------------------------------------------------------------------
+Text-to-Workflow Agent              ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Dependency Analysis Agent           ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Risk Analysis Agent                 ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Policy Explanation Agent            ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Preflight Explanation Agent         ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Root Cause Agent                    ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Incident Summary Agent              ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Runbook Agent                       ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Change Impact Agent                 ✓           ✓     ✓    ✓          ✓             ✓                ✓
+
+Topology Discovery Agent            ✓           ✓     ✓    ✓          △             ✓                △
+Schema Semantics Agent              ✓           △     △    ✓          △             ✓                ✓
+Data Type Discovery Agent           ✓           △     △    ✓          △             ✓                ✓
+Connector Recommendation Agent      ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Capacity Recommendation Agent       ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Checkpoint Recommendation Agent     ✓           ✓     ✓    ✓          ✓             ✓                △
+Workflow Optimization Agent         ✓           ✓     ✓    ✓          ✓             ✓                ✓
+Legend:
+✓ = directly useful
+△ = useful only if that solution touches data structure/schema
+Solution-specific agents needed?
+Not many as separate agents. Better pattern:
+Shared Agent
+    +
+Solution Context Pack
+    +
+Solution Tool Adapter
+Example:
+Risk Analysis Agent
+    + Migration context
+        → checks cutover, CDC, type loss, destructive writes
+
+Risk Analysis Agent
+    + BCR context
+        → checks backup completeness, restore validity, retention risk
+
+Risk Analysis Agent
+    + DR context
+        → checks RPO/RTO, replica lag, failover readiness
+So you do not need:
+MigrationRiskAgent
+BCRRiskAgent
+DRRiskAgent
+Prefer:
+RiskAnalysisAgent(solution_type="migration")
+RiskAnalysisAgent(solution_type="bcr")
+RiskAnalysisAgent(solution_type="dr")
+Does each solution have its own orchestrator?
+No.
+Do not create per-solution orchestrators.
+Use:
+Relix Core Orchestrator
+        ↓
+Solution Wrapper
+        ↓
+Workflow Composition
+        ↓
+Agent Framework
+        ↓
+Validators
+        ↓
+Runtime
+Each solution registers:
+- workflow wrapper
+- allowed workflow steps
+- validation rules
+- policy rules
+- preflight checks
+- agent context pack
+- reports
+- topology views
+But execution stays centralized.
+Clean architecture
+                         +----------------------+
+                         | Relix Core Runtime   |
+                         | Orchestrator         |
+                         +----------+-----------+
+                                    |
+                                    v
+                         +----------------------+
+                         | Solution Wrapper     |
+                         | migration / bcr / dr |
+                         +----------+-----------+
+                                    |
+                                    v
++-------------------+     +----------------------+     +------------------+
+| Agent Framework   | --> | Validators / Policy  | --> | Frozen Plan      |
+| shared agents     |     | deterministic checks |     | immutable        |
++-------------------+     +----------------------+     +--------+---------+
+                                                                  |
+                                                                  v
+                                                        +------------------+
+                                                        | Runtime Executes |
+                                                        +------------------+
+Final recommendation
+Core orchestrator = one
+Solution wrappers = many
+Agent framework = shared
+Solution-specific behavior = context packs + adapters + validators
+Runtime execution authority = core only
+This keeps Relix extensible without creating duplicated orchestration logic.
+
+For Relix agents, use deployment modes, not separate orchestrators.
+Recommended model:
+One Agent Framework
+Many Agent Workers
+Solution-specific Context Packs
+Core Runtime remains separate
+Deployment modes
+1. Embedded mode — dev / local / early v0.6
+Relix API / Control Plane
+        ↓
+Agent Framework runs in same process
+        ↓
+LLM Gateway
+Use for:
+- local testing
+- early demos
+- low traffic
+- simple recommendation/explanation calls
+Not ideal for production scale.
+ 
+⸻
+ 
+2. Sidecar service mode — recommended first production mode
+Relix Control Plane
+        ↓
+Agent Service
+        ↓
+LLM Gateway
+        ↓
+Approved LLM Providers
+Use for:
+- recommendation agents
+- explanation agents
+- risk analysis
+- policy explanation
+- text-to-workflow drafts
+This is the best default.
+ 
+⸻
+ 
+3. Async worker mode — long-running agent tasks
+Relix Control Plane
+        ↓
+Agent Task Queue
+        ↓
+Agent Worker Pool
+        ↓
+LLM Gateway
+Use for:
+- large workflow analysis
+- topology explanation
+- historical telemetry reasoning
+- incident summaries
+- bulk recommendation generation
+ 
+⸻
+ 
+4. Offline batch mode — analytics / optimization
+Historical Store
+        ↓
+Analytics Job
+        ↓
+Recommendation Batch
+        ↓
+Review Queue
+Use for:
+- weekly optimization recommendations
+- connector performance reports
+- capacity planning
+- historical trend explanations
+ 
+⸻
+ 
+Recommended Relix deployment architecture
+                   +----------------------+
+                   | Relix Control Plane  |
+                   | API / UI / CLI       |
+                   +----------+-----------+
+                              |
+                              v
+                   +----------------------+
+                   | Agent Gateway        |
+                   | auth, policy, audit  |
+                   +----------+-----------+
+                              |
+            +-----------------+-----------------+
+            |                                   |
+            v                                   v
++----------------------+            +----------------------+
+| Agent Service        |            | Agent Worker Pool    |
+| sync/interactive     |            | async/long-running   |
++----------+-----------+            +----------+-----------+
+           |                                   |
+           v                                   v
++----------------------+            +----------------------+
+| LLM Provider Gateway |            | Historical/Telemetry |
+| LiteLLM / adapters   |            | Stores               |
++----------+-----------+            +----------------------+
+           |
+           v
++----------------------+
+| Approved LLM Models  |
+| OpenAI/Claude/etc.   |
++----------------------+
+Key rule
+Agents never deploy inside Runtime Executor.
+Keep them here:
+Control Plane / Intelligence Layer
+Not here:
+Runtime Executor / Checkpoint Engine / Reconciliation Engine
+Final recommendation
+v0.6:
+- Agent service mode
+- LLM gateway
+- admin-only model config
+- audit + token/cost tracking
+
+v1.x:
+- async agent worker pool
+- batch recommendation jobs
+- distributed agent execution if needed
+So: sidecar Agent Service first, then Agent Worker Pool for heavier tasks.
+
+
+Yes — the agent layer can work across any source/destination type if you keep it behind connector/tool abstractions.
+Where MCP fits
+MCP fits between the Agent Service and external/domain tools.
+Relix Control Plane
+        ↓
+Agent Gateway
+        ↓
+Agent Service
+        ↓
+MCP Client
+        ↓
+MCP Servers / Tools
+        ↓
+Databases / Catalogs / Ticketing / Docs / Cloud APIs
+What MCP is for
+Use MCP for agent-accessible tools, not runtime execution.
+Good MCP tools:
+- discover database schemas
+- read catalog metadata
+- fetch connector capabilities
+- query data dictionary
+- read policy documents
+- fetch historical incidents
+- fetch runbooks
+- search lineage/catalog systems
+- inspect cloud resource metadata
+- create draft tickets / summaries
+Not MCP:
+- actual migration execution
+- checkpoint mutation
+- runtime task assignment
+- reconciliation authority
+- workflow state mutation
+Source/destination independence
+For any source/destination:
+PostgreSQL → Snowflake
+Oracle → BigQuery
+S3 → Databricks
+MongoDB → PostgreSQL
+Kafka → Lakehouse
+the agent should ask MCP/connector tools for facts:
+Agent
+  ↓
+MCP tool: introspect source schema
+  ↓
+MCP tool: inspect target capabilities
+  ↓
+MCP tool: fetch mapping rules
+  ↓
+Agent drafts recommendation/explanation
+  ↓
+Validator verifies
+  ↓
+Human approves
+  ↓
+Runtime executes
+Clean boundary
+MCP = tool access layer for intelligence/control-plane reasoning
+Connector runtime = authoritative execution layer
+Core rule:
+Agents use MCP to observe and reason.
+Runtime uses connectors to execute.
+
+Yes. MCP should arrive before full v0.6 intelligence, because agents need tool access before they can reason over real systems.
+Use subversions:
+v0.6.0 = Intelligence foundation
+v0.6.1 = Tool access / MCP layer
+v0.6.2 = Recommendation agents
+v0.6.3 = Explanation agents
+v0.6.4 = Optimization agents
+Better roadmap:
+v0.6.0 — Intelligent Platform Foundation
+- Agent Instruction Hierarchy & Human Override Policy
+- LLM Provider Governance & Model Routing
+- Agent Gateway / Audit / Token Budget
+
+v0.6.1 — MCP Tool Access Layer
+- MCP Client Integration
+- MCP Server Registry
+- Tool permission model
+- Tool call audit
+- Tool result validation
+- Read-only discovery tools first
+
+v0.6.2 — Observability Analytics
+- analytics engine
+- derived metrics
+- historical analysis
+- anomaly indicators
+
+v0.6.3 — Recommendation & Optimization Agents
+- workflow recommendation
+- dependency analysis
+- risk analysis
+- optimization suggestions
+
+v0.6.4 — AI Explanation & Operational Reasoning
+- explain failures
+- explain policies
+- explain recommendations
+- explain telemetry anomalies
+MCP FR title:
+FR-XXX — MCP Tool Access & Agent Integration Framework
+Target Version: v0.6.1
+Scope: Platform / Intelligence Tooling
+Core rule:
+Agents use MCP to observe and reason.
+Runtime uses connectors to execute.
+MCP should support:
+- MCP client inside Agent Service
+- approved MCP server registry
+- tool permission policies
+- read-only tool mode
+- tool-call audit
+- tool result validation
+- tenant/workspace scoped tool access
+- no runtime mutation
+Non-goals:
+- MCP executes workflows
+- MCP mutates checkpoint/state stores
+- MCP bypasses connectors
+- MCP bypasses validators
+- MCP grants customer-level provider access
+So yes: incremental v0.6.x is the right approach, and MCP should be v0.6.1, before recommendation/explanation agents.
+
+
+Yes. Clean rule:
+v0.1 → v0.5 = deterministic platform foundation
+v0.6 onward = bounded intelligence layer
+But even from v0.6, AI is advisory only, not execution authority.
+Till v0.5:
+- deterministic runtime
+- workflow composition
+- review/freeze
+- telemetry
+- reporting
+- alerting
+- multi-tenancy
+- scheduling
+- admin control
+
+From v0.6:
+- LLM governance
+- MCP tool access
+- analytics
+- recommendations
+- explanations
+- human-assist agents
+Authority remains:
+AI suggests / explains
+Validators verify
+Humans approve
+Runtime executes
+So the product stance is:
+Relix is deterministic-first.
+AI starts at v0.6 as a bounded intelligence layer.
+AI never replaces runtime authority.
+
+
+This should become an explicit architecture rule. Right now your v0.6 intelligence is agent-centric; you want plugin-centric intelligence.
+Do not bind intelligence to specific solutions or connectors.
+Recommended architecture:
+Platform Intelligence Core
+        ↓
+Intelligence Capability Registry
+        ↓
++----------------+----------------+----------------+
+| Connector Pack | Solution Pack  | Domain Pack    |
++----------------+----------------+----------------+
+        ↓
+Agent Runtime
+        ↓
+Human Approval
+        ↓
+Runtime
+Core rule:
+Intelligence capabilities are registered.
+
+Connectors and solutions extend intelligence behavior.
+
+Core intelligence framework remains unchanged.
+Example with a new connector:
+Connector: PostgreSQL
+Registers:
+
+- schema discovery capability
+- topology discovery capability
+- type inference capability
+- risk patterns
+- connector explanations
+Add new connector:
+Connector: MongoDB
+Registers:
+
+- collection discovery
+- document structure inference
+- nested-field semantics
+- connector risk patterns
+No core agent changes.
+ 
+⸻
+ 
+Example with new solution:
+Solution: Migration
+
+Registers:
+
+- migration workflow templates
+- migration risks
+- migration topology rules
+- migration explanations
+New solution:
+Solution: DR
+
+Registers:
+
+- RPO checks
+- failover workflow templates
+- replica risk patterns
+- DR explanations
+Again:
+No core agent changes
+Suggested FR:
+FR-XXX — Intelligence Capability Registry Framework
+
+Target Version
+v0.6.0
+
+Scope
+Platform / Intelligence Foundation
+
+Objective
+
+Provide a registry-based intelligence framework that allows connectors and solutions to extend intelligence behavior without modifying core intelligence services.
+Capabilities:
+- capability registration
+- capability discovery
+- connector intelligence packs
+- solution intelligence packs
+- capability versioning
+- capability permissions
+- capability dependencies
+Registration example:
+Connector:
+
+PostgreSQL
+
+Capabilities:
+
+- schema_discovery
+- topology_discovery
+- type_inference
+- risk_analysis
+Solution:
+
+Migration
+
+Capabilities:
+
+- migration_recommendation
+- migration_explanation
+- migration_risk
+Dependency chain becomes:
+MCP
+    ↓
+Intelligence Capability Registry
+    ↓
+Connector Packs
+    ↓
+Solution Packs
+    ↓
+Agent Runtime
+    ↓
+Human Approval
+    ↓
+Runtime
+Then adding:
+new connector
+new solution
+new domain
+becomes configuration/registration rather than changing the intelligence engine. This is the extensible design you want.
+
+Yes. Add an admin-only UI FR for the intelligence layer.
+This should not be customer/user configuration. It belongs to Relix platform administration.
+FR-XXX — Intelligence Admin Console & Agent Configuration Management
+
+Target Version
+v0.6.0 Intelligent Platform Foundation
+
+Scope
+Platform / Intelligence Governance / Admin UI
+Purpose:
+Allow Relix administrators to manage:
+- enabled agents
+- agent flows
+- solution-specific agent configuration
+- connector intelligence packs
+- solution intelligence packs
+- approved LLM models
+- MCP tool access
+- token/cost limits
+- prompt/version policies
+- audit visibility
+Architecture:
+Relix Admin
+    ↓
+Intelligence Admin Console
+    ↓
+Access Validator
+    ↓
+Intelligence Capability Registry
+    ↓
+Agent Gateway / MCP Layer / LLM Gateway
+Admin can configure per solution:
+Migration:
+- enable risk analysis agent
+- enable topology explanation agent
+- use approved_model = gpt-4.1
+- allow MCP tools = postgres_schema_reader, catalog_search
+- max_tokens_per_request = 8000
+
+BCR:
+- enable restore validation explanation
+- enable backup risk agent
+- allow MCP tools = object_store_reader, backup_catalog_reader
+Core rules:
+Only Relix Admin can configure intelligence behavior.
+
+Tenant/customer users may consume allowed agent outputs,
+but cannot change:
+- models
+- tools
+- routing
+- prompts
+- token budgets
+- provider access
+- agent flow rules
+Non-goals:
+- customer-managed LLM providers
+- unrestricted prompt editing
+- runtime execution mutation
+- agent bypass of validators
+- agent bypass of governance
+So v0.6.0 foundation should include:
+FR-XXX — Agent Instruction Hierarchy & Human Override Policy
+FR-XXX — LLM Provider Governance & Model Routing Framework
+FR-XXX — Intelligence Capability Registry Framework
+FR-XXX — Intelligence Admin Console & Agent Configuration Management
+Then v0.6.1 can add:
+FR-XXX — MCP Tool Access & Agent Integration Framework
+
+
+Yes. Add enable / disable controls explicitly.
+In the Intelligence Admin Console & Agent Configuration Management FR, add:
+Agent Enablement Controls
+
+Relix administrators can:
+
+* enable agent
+* disable agent
+* enable agent per solution
+* disable agent per solution
+* enable agent per connector
+* disable agent per connector
+* enable specific agent flow
+* disable specific agent flow
+* enable MCP tool access
+* disable MCP tool access
+* enable LLM provider/model
+* disable LLM provider/model
+Add rule:
+Disabled agents must not:
+
+* receive tasks
+* call LLM providers
+* call MCP tools
+* generate recommendations
+* generate explanations
+Add audit:
+Enable/disable actions must capture:
+
+* admin user
+* timestamp
+* target agent/tool/model
+* previous state
+* new state
+* reason
+So yes, final admin model:
+Relix Admin configures.
+Agents obey config.
+Users consume outputs.
+Runtime remains authoritative.
+
+
+
+Correct — adding a new connector should not require code changes to the core intelligence layer, if you design it with registry + capability packs.
+It should work like this:
+New Connector
+   ↓
+Connector Capability Descriptor
+   ↓
+Connector Intelligence Pack
+   ↓
+Intelligence Capability Registry
+   ↓
+Shared Agents use registered capabilities
+Core intelligence layer remains unchanged.
+For each connector, register metadata/config such as:
+connector_id: postgres
+capabilities:
+  - schema_discovery
+  - topology_discovery
+  - type_mapping
+  - risk_patterns
+  - explanation_templates
+  - mcp_tools
+For a new connector, for example MongoDB:
+connector_id: mongodb
+capabilities:
+  - collection_discovery
+  - document_shape_inference
+  - nested_field_mapping
+  - type_mapping
+  - risk_patterns
+  - explanation_templates
+  - mcp_tools
+The intelligence layer asks:
+What capabilities does this connector expose?
+Which tools are allowed?
+Which mappings/explanations/risk rules are registered?
+It should not hardcode connector behavior.
+Clean rule:
+Add connector = add connector pack/config/tool adapter
+Do not modify core agents
+Do not modify intelligence orchestration
+Do not modify runtime authority
+Only exception: if a connector introduces a completely new capability type that the platform has never modeled before, then you add a new capability contract — but still not connector-specific logic inside the intelligence layer.
+
+
+Do GTM connector first → intelligence foundation → remaining connectors.
+Best sequence:
+1. Build GTM connector
+   - PostgreSQL → PostgreSQL / your first target path
+   - stable connector capability contract
+   - schema discovery
+   - type discovery
+   - preflight checks
+   - telemetry emission
+
+2. Build intelligence foundation
+   - LLM provider governance
+   - MCP/tool access layer
+   - intelligence capability registry
+   - admin-only config
+   - agent boundary rules
+
+3. Prove intelligence on GTM connector
+   - explain preflight failures
+   - explain topology
+   - recommend mappings
+   - summarize telemetry
+   - risk analysis
+
+4. Add remaining connectors
+   - each connector registers capability pack
+   - no core intelligence rewrite
+Do not wait to add all connectors before intelligence. That delays learning too much.
+Do not build intelligence before at least one real connector. Otherwise you’ll design against abstractions only.
+Correct product strategy:
+One real connector proves the contract.
+Intelligence proves extensibility.
+Remaining connectors plug into the registry.
+So roadmap:
+v0.2 / GTM
+GTM connector + deterministic execution
+
+v0.6.0
+Intelligence foundation
+
+v0.6.1
+MCP/tool access + registry
+
+v0.6.2+
+Agent capabilities proven on GTM connector
+
+v0.7 / v1.x
+More connectors added through packs
+
+
+
+
+
+
+
+
+
+
