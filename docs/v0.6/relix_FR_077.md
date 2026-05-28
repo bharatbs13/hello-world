@@ -15,6 +15,7 @@ Relix agents MAY operate in different execution modes depending on:
 - environment configuration
 - user permissions
 - workflow classification
+- RBAC authorization
 Execution mode determines how actions are proposed, approved, and executed.
 ---
 ## Supported Modes
@@ -33,9 +34,29 @@ All execution modes MUST remain governed by:
 
 * platform constraints
 * governance policies
+* RBAC authorization
 * access-control rules
 * audit requirements
 * deterministic runtime restrictions
+
+⸻
+
+RBAC Interaction Governance
+
+All agent interactions and executions MUST be RBAC approved.
+
+RBAC policies MUST govern:
+
+* accessible capabilities
+* connector visibility
+* execution permissions
+* approval authority
+* workflow initiation
+* workflow escalation
+* autonomous execution eligibility
+* sensitive operation access
+
+Agents MUST operate only within the permissions assigned to the requesting identity and execution context.
 
 ⸻
 
@@ -57,6 +78,7 @@ In interactive mode:
 
 * human approval MUST be required before execution
 * approval decisions MUST be auditable
+* execution requests MUST be RBAC validated
 * agents MAY prepare execution plans
 
 ⸻
@@ -68,6 +90,7 @@ In semi-autonomous mode:
 * approved low-risk actions MAY execute automatically
 * sensitive operations MUST require approval
 * governance policies MUST define approval thresholds
+* RBAC policies MUST determine autonomous eligibility
 
 ⸻
 
@@ -79,6 +102,7 @@ In autonomous mode:
 * all operations MUST remain policy validated
 * autonomous execution MUST remain auditable
 * restricted operations MAY still require escalation
+* execution authority MUST remain RBAC constrained
 
 ⸻
 
@@ -87,6 +111,7 @@ Restrictions
 Agents MUST NOT bypass:
 
 * governance policies
+* RBAC controls
 * credential boundaries
 * audit systems
 * runtime constraints
