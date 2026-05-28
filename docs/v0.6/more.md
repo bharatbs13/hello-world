@@ -37,3 +37,65 @@ Highest UI impact:
 | 3 | RBAC + approval management |
 | 4 | Observability dashboard |
 | 5 | Testing / simulation console |
+
+
+Yes — DWE becomes the execution substrate for distributed agents.
+
+Relix Control Plane
+  ↓
+Agent Gateway
+  ↓
+DWE Distributed Worker Engine
+  ↓
+Agent Worker Services
+  ↓
+Connectors / APIs / DB / Storage
+
+So agents are not just “chat objects.” In mature Relix, they become a cluster of governed worker services.
+
+| Layer | Role |
+|---|---|
+| Agent Gateway | Receives agent invocation and normalizes contract |
+| DWE | Dispatches jobs, schedules workers, handles retries/timeouts |
+| Agent Worker | Runs specialized task agent logic |
+| Governance Layer | RBAC, policy, audit, credentials |
+| Connector Layer | Executes DB/API/dlt/custom REST operations |
+
+Adoption model:
+
+| Stage | Agent Deployment |
+|---|---|
+| v0.6 | agents as in-process modules |
+| v0.7 | agents can run as DWE workers |
+| v0.8+ | agents form distributed service clusters |
+
+Design principle:
+
+Agent = logical capability.
+DWE worker = physical execution unit.
+
+So one migration_agent may run as:
+
+migration_agent
+  ├── planner worker
+  ├── schema inspection worker
+  ├── dry-run worker
+  ├── execution worker
+  └── reconciliation worker
+
+This fits very well with DWE.
+
+You can add an FR:
+
+# FR-090 — Distributed Agent Execution via DWE
+## Target Version
+v0.7
+## Scope
+Agent Runtime / Distributed Worker Execution
+## Objective
+Enable Relix agents to execute as distributed worker services through the DWE framework.
+## Requirement
+Relix MUST support mapping governed agent invocations to DWE jobs, workers, queues, retries, timeouts, and execution state while preserving RBAC, policy validation, audit logging, and credential-safety boundaries.
+## Core Principle
+Agent identity is logical.
+Worker execution is physical.
