@@ -10,10 +10,11 @@
 
 ---
 
-## 1. Scope Rule: Bootstrap vs. Preflight
+## 1. Scope Rule: Bootstrap vs. Topology vs. Preflight
 
-* **Bootstrap (FR-032):** Validates Relix platform configuration, tenant policy, registry status, and input syntax. It operates entirely within the platform boundary.
-* **Preflight (FR-033):** Validates target infrastructure, actual runtime access, authentication correctness, and pair-level compatibility. It crosses the boundary into the target environment.
+* **Bootstrap (FR-032):** Validates Relix platform configuration, tenant policy, registry status, input syntax, and **control-plane service availability**. It operates entirely within the platform boundary to answer: **"Can Relix safely start?"**
+* **Topology (FR-030):** Maps infrastructure structure. It operates as a metadata cartographer to answer: **"What exists?"**
+* **Preflight (FR-033):** Validates target infrastructure readiness, runtime access, and solution compatibility. It crosses the boundary into the target environment to answer: **"Is the discovered setup ready for the intended solution?"**
 
 ---
 
@@ -24,6 +25,7 @@ The Bootstrap Agent functions as the initial entry point, requiring both the env
 ```yaml
 agent_id: "system::core::bootstrap_readiness"
 version: "0.6.1"
+interface_schema_version: "1.0"
 accepted_artifact_types: ["tenant_policy", "topology_seed"]
 produced_artifact_types: ["bootstrap_readiness_report"]
 supported_execution_modes: ["DRY_RUN", "SUPERVISED"]
@@ -43,6 +45,7 @@ risk_tier: "LOW"
 | **Tenant/Policy** | Tenant identity, workspace boundaries, and active execution mode limits. |
 | **Connector Registry** | Existence and schema validity of requested connector profiles. |
 | **Vault/Secrets** | Vault service reachability, `secret_ref` URI format, and secret policy configuration. |
+| **Platform Services** | Availability of required Relix control-plane services (e.g., Audit store, Cache service, Policy store). |
 | **Runtime Budget** | Initial check for discovery budget availability. |
 | **Input Syntax** | Syntactic validation of the `topology_seed` input parameters. |
 
@@ -50,7 +53,7 @@ risk_tier: "LOW"
 
 ## 4. Implementation Constraints
 
-* **No Infrastructure Probes:** The Bootstrap Agent must **not** attempt to authenticate against or probe target infrastructure. All credential-based authentication testing is deferred to the Preflight Validation Agent (v0.6.3).
+* **No Infrastructure Probes:** The Bootstrap Agent must **not** attempt to authenticate against or probe target infrastructure. All target-infrastructure credential authentication and target network-level reachability checks are deferred to the Preflight Validation Agent (v0.6.3).
 * **Deterministic Sequencing:** Checks are executed in registry order. Results are idempotent; the agent must provide identical output for identical `tenant_policy` and `topology_seed` inputs.
 * **Fail-Fast Gating:** The agent aggregates results into the `bootstrap_readiness_report`. If a **MANDATORY** check fails, the platform runtime emits `BOOTSTRAP_BLOCKED` and suppresses the instantiation of the `Topology Discovery Agent`.
 
@@ -58,7 +61,7 @@ risk_tier: "LOW"
 
 ## 5. Roadmap Positioning
 
-This agent establishes the first major milestone of the platform’s "Capability Layer."
+This agent establishes the foundation of the platform’s Capability Layer:
 
 * **v0.6.1:** **Bootstrap Readiness** (Can we start?)
 * **v0.6.2:** **Topology Discovery** (What exists?)
@@ -74,4 +77,4 @@ Status: ARCHITECTURE FROZEN | APPROVED
 
 ---
 
-This agent is now ready to serve as the platform's initial handshake. With the Bootstrap scope finalized, the foundation for the v0.6.x sequence is complete. Shall we proceed with the detailed design of **v0.6.2 (Topology Discovery)**, or is there a specific interaction between Bootstrap and Topology that requires further definition?
+The architectural boundaries for the foundation are now complete and fully demarcated. Bootstrap, Topology, and Preflight each have a distinct, non-overlapping mandate. I am ready to support your transition into the technical implementation phase.
