@@ -1,19 +1,18 @@
 v0.6.0
     Agent Platform Foundation
 
-v0.6.1
-    Topology Discovery
+v0.6.1  Bootstrap Readiness Agent
+v0.6.2  Topology Discovery Agent
+v0.6.3  Preflight Validation Agent
 
-v0.6.2
-    Preflight Validation
-
-v0.6.3
-    Infrastructure Testing
 
 v0.6.4
-    Migration Planning
+    Infrastructure Testing
 
 v0.6.5
+    Migration Planning
+
+v0.6.6
     Backup Planning
 
 --------------------------
