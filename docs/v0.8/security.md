@@ -1,6 +1,6 @@
  
 
-v0.6+ Security Layer Ideas
+v0.8 Security Layer Ideas
 connector sandboxing
 isolated worker execution
 encryption/masking policies
