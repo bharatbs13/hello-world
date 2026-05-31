@@ -1,4 +1,5 @@
-# FR-064 — Controlled `dlt` Governance & Access Framework
+
+# FR-064 — Connector Access Control Framework
 
 ## Status
 
@@ -6,13 +7,13 @@ Proposed
 
 ## Phase
 
-`v0.2.1`
+v0.2.1
 
 ## Objective
 
-Provide a controlled governance and access framework for `dlt` integration within Relix using a centralized controller, YAML-configured source/destination registration, and deterministic runtime enforcement.
+Provide a centralized access-control and governance framework for all Relix connectors.
 
-FR-064 enables Relix to leverage the broad connector ecosystem provided by `dlt` while preserving Relix runtime determinism, governance, security, and execution integrity.
+The framework defines how Relix controls connector permissions, source/destination roles, operation authorization, and runtime enforcement independently of the underlying connector technology.
 
 ---
 
@@ -20,282 +21,286 @@ FR-064 enables Relix to leverage the broad connector ecosystem provided by `dlt`
 
 FR-064 introduces:
 
-* `RelixDltController`
-* YAML-configured source/destination registration
-* access-control enforcement
-* connector governance
-* secret-provider integration
-* controlled `dlt` pipeline creation
-* preflight validation for `dlt`-backed connectors
+* connector access policies
+* source/destination role governance
+* operation authorization
+* access-mode enforcement
+* runtime operation guards
+* preflight access validation
+* audit logging
 
-FR-064 does NOT replace Relix connector interfaces or runtime orchestration.
+This framework applies to:
+
+* Native Connectors
+* DltConnectorAdapter
+* Future Connector Adapters
+* File Connectors
+* API Connectors
+* SaaS Connectors
 
 ---
 
-## Architectural Principle
+## Core Principle
 
 ```text
-dlt = connector capability provider
-Relix = governance + determinism layer
+Governance applies to connector role,
+not connector technology.
 ```
 
-Relix MUST remain authoritative for:
+Relix MUST enforce access policies regardless of:
 
-* runtime orchestration
-* deterministic execution
-* checkpoints
-* reconciliation
-* execution plans
-* event lifecycle semantics
-* protocol semantics
+* database permissions
+* cloud permissions
+* connector capabilities
+* user privileges
 
 ---
 
-## Connector Ecosystem Model
+## Connector Roles
 
-All connector types supported by `dlt` are implicitly available.
+Every connector MUST be assigned a role.
 
-Relix MUST NOT maintain a duplicated registry of supported connector types.
+### Allowed Roles
 
-Instead, Relix governs:
+```yaml
+role: source
+```
 
-* which configured sources may be used
-* which configured destinations may be used
-* which tables/schemas are accessible
-* whether execution policies are satisfied
-
----
-
-## Architecture
-
-```text
-                ┌────────────────────┐
-                │ Relix Runtime Core │
-                └─────────┬──────────┘
-                          │
-                RelixDltController
-                          │
-            ┌─────────────┴─────────────┐
-            │                           │
-      Access Governance          Secret Provider
-            │                           │
-            └─────────────┬─────────────┘
-                          │
-                     dlt Backend
+```yaml
+role: destination
 ```
 
 ---
 
-## RelixDltController
+## Access Modes
 
-### Responsibilities
-
-The controller MUST:
-
-* validate source registration
-* validate destination registration
-* enforce table governance
-* enforce access policies
-* construct `dlt` pipelines
-* integrate with Relix secret providers
-* isolate raw `dlt` APIs from runtime layers
-
----
-
-## Runtime Isolation
-
-Relix runtime MUST NOT directly invoke raw `dlt` APIs.
-
-The following pattern is prohibited:
-
-```python
-dlt.pipeline(...)
-```
-
-All `dlt` interactions MUST occur through:
-
-```python
-RelixDltController
-```
-
----
-
-## YAML Configuration
+Every connector MUST declare an access mode.
 
 ### Example
 
 ```yaml
-dlt:
-  enabled: true
+sources:
+  - id: sales_pg
+    type: postgres
+    role: source
+    access_mode: read_only
 
-  sources:
-    - id: sales_pg
-      type: postgres
-      secret_ref: relix/secrets/sales_pg
-
-      allowed_tables:
-        - public.orders
-        - public.customers
-
-  destinations:
-    - id: warehouse_duckdb
-      type: duckdb
-      dataset_name: relix_snapshot
-      secret_ref: relix/secrets/duckdb
-
-  access_policy:
-    allow_raw_sql: false
-    allow_unlisted_tables: false
-    require_preflight: true
+destinations:
+  - id: warehouse_pg
+    type: postgres
+    role: destination
+    access_mode: write_allowed
 ```
 
 ---
 
-## Source & Destination Governance
+## Supported Access Modes
 
-Relix MUST validate:
+### Read Only
 
-* source existence
-* destination existence
-* table allowlisting
-* schema governance
+```yaml
+access_mode: read_only
+```
+
+Allowed:
+
+```text
+SELECT
+READ
+SCAN
+EXPORT
+METADATA DISCOVERY
+```
+
+Forbidden:
+
+```text
+INSERT
+UPDATE
+DELETE
+TRUNCATE
+ALTER
+DROP
+CREATE
+MERGE
+UPSERT
+```
+
+---
+
+### Write Allowed
+
+```yaml
+access_mode: write_allowed
+```
+
+Allowed operations depend on connector implementation and deployment policy.
+
+---
+
+## Source Protection Rule
+
+Relix MUST treat source connectors as read-only resources.
+
+### Mandatory Rule
+
+```text
+Source connectors are read-only by Relix policy,
+regardless of underlying privileges.
+```
+
+Example:
+
+```text
+DB user has:
+  INSERT
+  UPDATE
+  DELETE
+
+Relix source policy:
+  READ ONLY
+
+Result:
+  mutation requests rejected
+```
+
+---
+
+## Destination Protection Rule
+
+Destination connectors MAY allow write operations only if:
+
+* configured by policy
+* validated during preflight
+* approved by execution plan
+
+---
+
+## Enforcement Layers
+
+### Layer 1 — Configuration Validation
+
+Validate:
+
+* role
+* access_mode
+* policy completeness
+
+---
+
+### Layer 2 — Preflight Validation
+
+Validate:
+
+* connector accessibility
 * credential availability
-* runtime policy compliance
+* policy consistency
+* operation compatibility
 
-before connector execution begins.
-
----
-
-## Connector Types
-
-Relix MUST NOT maintain a hardcoded allowlist of connector types.
-
-Connector availability is delegated to `dlt`.
-
-Unsupported connector types MUST fail during preflight validation.
+Execution MUST NOT begin if validation fails.
 
 ---
 
-## Raw SQL Policy
+### Layer 3 — Runtime Operation Guard
 
-Raw SQL execution MUST be disabled by default.
+All connector operations MUST pass through Relix authorization checks.
 
-### Default
-
-```yaml
-allow_raw_sql: false
-```
-
----
-
-## Table Governance
-
-The controller MUST validate:
-
-* schema name
-* table name
-* allowed-table membership
-
-before read or write operations begin.
-
----
-
-## Secret Handling
-
-Credentials MUST be resolved through Relix secret providers.
-
-The controller MUST NOT:
-
-* hardcode credentials
-* bypass Relix secret providers
-* expose secrets in logs/events
-
----
-
-## Preflight Integration
-
-FR-033 preflight MUST validate:
-
-* source accessibility
-* destination accessibility
-* required permissions
-* table governance
-* policy compliance
-* capability compatibility
-
-Execution MUST NOT begin if governance checks fail.
-
----
-
-## Determinism Requirements
-
-The controller MUST NOT weaken:
-
-* deterministic ordering
-* deterministic pagination
-* replay consistency
-* reconciliation reproducibility
-
-Relix runtime remains authoritative for all deterministic execution semantics.
-
----
-
-## Reconciliation
-
-Reconciliation MUST remain Relix-owned.
-
-The controller MAY expose helper metadata:
-
-* counts
-* checksums
-* destination statistics
-
-but reconciliation decisions MUST remain inside Relix runtime.
-
----
-
-## Error Semantics
-
-`dlt`-originated failures MUST be translated into Relix runtime errors.
-
-Raw `dlt` exceptions MUST NOT propagate beyond connector boundaries.
-
----
-
-## Packaging
-
-`dlt` MUST remain an optional dependency.
-
-### Example
+Example:
 
 ```text
-pip install relix[dlt]
+read()
+write()
+execute_sql()
+execute_query()
+truncate()
+merge()
 ```
 
-Core Relix installation MUST NOT require `dlt`.
+Unauthorized operations MUST be rejected.
 
 ---
 
-## Connector Selection Policy
+### Layer 4 — SQL Mutation Guard
 
-Default selection policy:
+Relix MUST detect and reject mutation operations on read-only connectors.
 
-1. Native connector
-2. `DltConnectorAdapter`
-3. Fail if no compatible connector exists
+Examples:
+
+```sql
+INSERT
+UPDATE
+DELETE
+MERGE
+UPSERT
+DROP
+ALTER
+TRUNCATE
+CREATE
+```
 
 ---
 
-## Auditability
+### Layer 5 — Role Separation
 
-The controller SHOULD emit audit events for:
+Relix MUST preserve logical separation between:
 
-* connector selection
-* unauthorized source access
-* unauthorized destination access
-* unauthorized table requests
-* failed preflight validation
-* connector capability mismatches
+```text
+Source Connectors
+Destination Connectors
+```
+
+A source connector MUST NOT automatically acquire destination privileges.
+
+---
+
+## Connector Technology Independence
+
+This framework MUST apply equally to:
+
+| Connector Type      | Governed |
+| ------------------- | -------- |
+| Native Connector    | Yes      |
+| DltConnectorAdapter | Yes      |
+| REST API Connector  | Yes      |
+| File Connector      | Yes      |
+| SaaS Connector      | Yes      |
+| Future Connector    | Yes      |
+
+---
+
+## Audit Requirements
+
+Relix SHOULD emit audit events for:
+
+* unauthorized reads
+* unauthorized writes
+* mutation attempts on source connectors
+* policy violations
+* access-mode mismatches
+* runtime authorization failures
+
+---
+
+## Relationship to Other FRs
+
+### FR-063
+
+```text
+DltConnectorAdapter MUST comply with FR-064.
+```
+
+### FR-066
+
+```text
+Transport validation remains independent
+from access-control validation.
+```
+
+### FR-033
+
+```text
+Preflight validation MUST enforce FR-064.
+```
 
 ---
 
@@ -303,36 +308,26 @@ The controller SHOULD emit audit events for:
 
 FR-064 is complete when:
 
-* `RelixDltController` exists
-* YAML source/destination registration exists
-* access policies are enforced
-* secret-provider integration works
-* unauthorized table access is rejected
-* preflight validates governance policies
-* raw `dlt` access is isolated behind controller boundaries
-* at least one `dlt`-backed connector path is tested successfully
+* connector roles exist
+* access_mode exists
+* source read-only enforcement exists
+* runtime operation guards exist
+* preflight validates access policies
+* mutation attempts are blocked on source connectors
+* native connectors comply
+* DltConnectorAdapter complies
+* audit events are generated
 
 ---
 
-## Deferred Items
+## Governing Principle
 
-The following are deferred:
+```text
+Relix is the authority for connector access control.
 
-* RBAC integration
-* user-scoped permissions
-* dynamic policy reload
-* distributed governance
-* streaming connectors
-* connector usage quotas
-* connector rate limiting
-* connector marketplace discovery
+Connector capabilities do not grant permissions.
 
----
+Permissions are granted only through Relix policy.
+```
 
-## References
-
-* FR-032 Ports & Adapters
-* FR-033 Preflight Framework
-* FR-063 Universal Connector Adapter Framework
-
-:contentReference[oaicite:0]{index=0}
+This is likely stronger and more future-proof than a "Controlled Connector Governance Framework" because it establishes a clear security boundary that every connector subsystem (v0.2.x, v0.3.x, and beyond) must obey.
