@@ -1,22 +1,22 @@
 # DESIGN DOCUMENT: Relix Enterprise Infrastructure, Schema & Lineage Discovery Engine
 
-**Document Identifier:** Relix Enterprise Metadata Discovery Platform v0.1 Architecture Freeze
+**Document Identifier:** Relix Enterprise Metadata Discovery Platform v0.6.1 Architecture Freeze
 
 **Requirement Reference:** FR-100 — Enterprise Topology, Schema & Lineage Discovery
 
 **Integrated Feature Requirements:**
 
-* FR-101 — Standard SaaS and Custom API Discovery Adapter Support (v0.2)
-* FR-102 — Object Storage, Data Lake Integration, and Connector Registry Governance (v0.2)
-* FR-103 — Messaging & Streaming Discovery Support (v0.3)
-* FR-104 — Compute & Processing Discovery (v0.1 Integrated)
-* FR-105 — Discovery Command Cache, Failure Memory, and Latency Profile (v0.2)
-* FR-107 — Agent Governance and Execution Mode Classification (v0.1 Integrated)
-* FR-108 — Credential Security, Secret Isolation & Access Governance (v0.1 Integrated)
+* FR-101 — Standard SaaS and Custom API Discovery Adapter Support (v0.6.1)
+* FR-102 — Object Storage, Data Lake Integration, and Connector Registry Governance (v0.6.1)
+* FR-103 — Messaging & Streaming Discovery Support (v0.6.1)
+* FR-104 — Compute & Processing Discovery (v0.6.1 Integrated)
+* FR-105 — Discovery Command Cache, Failure Memory, and Latency Profile (v0.6.1)
+* FR-107 — Agent Governance and Execution Mode Classification (v0.6.1 Integrated)
+* FR-108 — Credential Security, Secret Isolation & Access Governance (v0.6.1 Integrated)
 
 **Planned / Optional Extensions:**
 
-* FR-106 — MCP Tool Gateway Integration (v0.5)
+* FR-106 — MCP Tool Gateway Integration (v0.6.1)
 
 **System Status:** ARCHITECTURE FROZEN | APPROVED
 
@@ -822,14 +822,14 @@ Discovery Source Data
 
 ## 8. Strategic Roadmap Architecture Integration
 
-### 8.1. FR-104 — Compute & Processing Discovery Implementation (v0.1 Integrated)
+### 8.1. FR-104 — Compute & Processing Discovery Implementation (v0.6.1 Integrated)
 
 The inclusion of `compute_processing` nodes extends the platform to trace transient data computation tasks, distributed processing platforms, and scheduled workflows. This capability interfaces directly with external job managers to reconstruct lineage dependencies.
 
 * **Target Platforms:** Databricks Workflow Clusters, Apache Spark Cluster states, Apache Airflow DAG Engines, AWS Glue Metastore Registries, Azure Data Factory Pipelines, EMR Core infrastructure configurations, Google Cloud Dataflow Jobs.
 * **Operational Execution Process:** The executor bypasses intermediate query structures, reading the runtime history payload straight from the orchestrator API. Discovered job inputs and outputs are isolated into structured transformation records and sent to the lineage assembler.
 
-### 8.2. FR-106 — Model Context Protocol (MCP) Tool Gateway Integration (v0.5 Option)
+### 8.2. FR-106 — Model Context Protocol (MCP) Tool Gateway Integration (v0.6.1 Option)
 
 The platform architecture establishes a strict governance rule for the integration of third-party systems via the Model Context Protocol (MCP). **MCP servers operate strictly as execution tools, never as planning authorities.** * **Decoupled Topology Boundary:** The Phase 1 Planner Agent remains completely decoupled from the transport tier and has no visibility into MCP discovery loops. It outputs standard declarative manifests.
 
@@ -971,7 +971,7 @@ The baseline specification is established and frozen under the following operati
 * **Zero-Trust Access:** Decoupled secret token lifecycle tracking sitting behind a strict data isolation boundary.
 
 ```text
-Relix Enterprise Metadata Discovery Platform v0.1 Architecture Freeze
+Relix Enterprise Metadata Discovery Platform v0.6.1 Architecture Freeze
 Status: APPROVED
 
 ```
@@ -986,28 +986,28 @@ To guide next steps following this formal architecture freeze, the baseline requ
 
 | Requirement ID | Architectural Core Component | Verification Gateway | Implementation Target |
 | --- | --- | --- | --- |
-| **FR-101** | Standard SaaS & Custom API Drivers | Contract Map Parser Check | Milestone 2 (v0.2 Core) |
-| **FR-102** | Object Storage & Data Lake Catalog | Schema Inference Extractor | Milestone 2 (v0.2 Core) |
-| **FR-103** | Streaming & Message Log Buffers | Consumer Group Matrix Mapper | Milestone 3 (v0.3 Event) |
-| **FR-104** | Distributed Compute Core Tracing | Job Ingestion Pipeline Trace | Milestone 1 (v0.1 Baselines) |
-| **FR-105** | Command Cache & Latency Engine | Dynamic Percentile Timeout Formula | Milestone 2 (v0.2 Core) |
-| **FR-107** | Execution Mode Governance Controller | Task Risk Interceptor Gate | Milestone 1 (v0.1 Baselines) |
-| **FR-108** | Cryptographic Vault Secret Protection | Just-In-Time Decryption Thread | Milestone 1 (v0.1 Baselines) |
+| **FR-101** | Standard SaaS & Custom API Drivers | Contract Map Parser Check | Milestone 2 (v0.6.1 Core) |
+| **FR-102** | Object Storage & Data Lake Catalog | Schema Inference Extractor | Milestone 2 (v0.6.1 Core) |
+| **FR-103** | Streaming & Message Log Buffers | Consumer Group Matrix Mapper | Milestone 3 (v0.6.1 Event) |
+| **FR-104** | Distributed Compute Core Tracing | Job Ingestion Pipeline Trace | Milestone 1 (v0.6.1 Baselines) |
+| **FR-105** | Command Cache & Latency Engine | Dynamic Percentile Timeout Formula | Milestone 2 (v0.6.1 Core) |
+| **FR-107** | Execution Mode Governance Controller | Task Risk Interceptor Gate | Milestone 1 (v0.6.1 Baselines) |
+| **FR-108** | Cryptographic Vault Secret Protection | Just-In-Time Decryption Thread | Milestone 1 (v0.6.1 Baselines) |
 
 ### 12.2. Roadmap Execution Timeline Plan
 
 ```text
-  MILESTONE 1: Foundation Baseline Setup (v0.1 Core) ──> CURRENT FROZEN BASELINE
+  MILESTONE 1: Foundation Baseline Setup (v0.6.1 Core) ──> CURRENT FROZEN BASELINE
     ├── Build decoupled Phase 1 LLM Planner Agent & YAML Policy Config Loader
     ├── Construct Phase 2 Manifest Execution Engine with hardcoded capability checks
     ├── Integrate FR-107 Execution Controller (DRY_RUN, SUPERVISED risk gates)
     └── Implement FR-108 cryptographic Vault runtime isolation & automated log redaction
   
-  MILESTONE 2: Target Storage & Optimization Engine Expansion (v0.2 Engine)
+  MILESTONE 2: Target Storage & Optimization Engine Expansion (v0.6.1 Engine)
     ├── Deliver FR-101 (SaaS OpenAPI Contract Maps) & FR-102 (S3 Parquet Footer Samplers)
     └── Release FR-105 Multi-Tenant Command Cache & Adaptive Timeout Latency Profilers
   
-  MILESTONE 3: Complex Event Systems & Compute Lineage Synthesis (v0.3/v0.4 Track)
+  MILESTONE 3: Complex Event Systems & Compute Lineage Synthesis (v0.6.1/v0.6.1 Track)
     ├── Roll out FR-103 Streaming Log Topologies (Kafka Topic Cluster Metadata extraction)
     └── Integrate FR-104 Advanced Compute Pipelines (Databricks Workflows / Lineage Ingestion)
 
