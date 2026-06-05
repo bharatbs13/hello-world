@@ -9,15 +9,16 @@ SRC_PATH="$3"
 DRY_RUN="${4:-}"
 
 if [ -z "$REPO_GIT" ] || [ -z "$BRANCH" ] || [ -z "$SRC_PATH" ]; then
-  echo "Usage: ./scoped_rsync_only.sh <repo_git> <branch> <src_path> [--dry-run]"
+  echo "Usage: ./fresh_mirror_commit.sh <repo_git> <branch> <src_path> [--dry-run]"
   echo "Example:"
-  echo "./scoped_rsync_only.sh relix.git fix/v0.1.1-core-boundary /Users/bharatsharma/Downloads/package_src --dry-run"
+  echo "./fresh_mirror_commit.sh relix.git dev/v0.2-runtime /Users/bharatsharma/Downloads/package_src --dry-run"
+  echo "./fresh_mirror_commit.sh relix.git dev/v0.2-runtime /Users/bharatsharma/Downloads/package_src"
   exit 1
 fi
 
 REPO_DIR="${REPO_GIT%.git}"
 REPO_URL="$GITHUB_BASE/$REPO_GIT"
-COMMIT_MSG="Scoped mirror sync to ${BRANCH}"
+COMMIT_MSG="Mirror sync package_src to ${BRANCH}"
 
 if [ ! -d "$SRC_PATH" ]; then
   echo "Source path does not exist: $SRC_PATH"
@@ -32,55 +33,39 @@ if [ "$SRC_BASENAME" != "package_src" ]; then
   exit 1
 fi
 
-echo "Detecting folders inside package_src..."
-SCOPES=()
-
-for item in "$SRC_PATH"/*; do
-  if [ -d "$item" ]; then
-    SCOPES+=("$(basename "$item")")
-  fi
-done
-
-if [ ${#SCOPES[@]} -eq 0 ]; then
-  echo "No folders found inside package_src to sync."
+if [ ! -f "$SRC_PATH/pyproject.toml" ]; then
+  echo "SRC_PATH does not look like repo-root content."
+  echo "Missing: $SRC_PATH/pyproject.toml"
   exit 1
 fi
 
-echo "Scopes to sync:"
-for scope in "${SCOPES[@]}"; do
-  echo "- $scope/"
-done
+case "$BRANCH" in
+  main|master)
+    echo "Refusing to mirror directly to protected branch: $BRANCH"
+    exit 1
+    ;;
+esac
 
 echo "Removing old clone..."
 rm -rf "$REPO_DIR"
 
-echo "Cloning $REPO_URL ..."
-git clone "$REPO_URL" "$REPO_DIR"
+echo "Cloning $REPO_URL branch $BRANCH ..."
+git clone --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
 
 cd "$REPO_DIR"
 
-echo "Checking out branch: $BRANCH"
-git checkout "$BRANCH"
-
-RSYNC_FLAGS="-av --delete"
+RSYNC_FLAGS=(-av --delete)
 
 if [ "$DRY_RUN" = "--dry-run" ]; then
-  RSYNC_FLAGS="$RSYNC_FLAGS --dry-run"
-  echo "Running scoped rsync in DRY RUN mode..."
+  RSYNC_FLAGS+=(--dry-run)
+  echo "Running mirror sync in DRY RUN mode..."
 else
-  echo "Running scoped rsync in APPLY mode..."
+  echo "Running mirror sync in APPLY mode..."
 fi
 
-for scope in "${SCOPES[@]}"; do
-  echo "Syncing scope: $scope/"
-  mkdir -p "$scope"
-
-  rsync $RSYNC_FLAGS \
-    --exclude ".venv/" \
-    --exclude "__pycache__/" \
-    --exclude ".pytest_cache/" \
-    "$SRC_PATH/$scope"/ "./$scope/"
-done
+rsync "${RSYNC_FLAGS[@]}" \
+  --exclude ".git/" \
+  "$SRC_PATH"/ ./
 
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "Dry run complete. No files changed, no commit made."
@@ -92,6 +77,9 @@ fi
 echo "Git status:"
 git status --short
 
+echo "Git diff summary:"
+git diff --stat
+
 if [ -z "$(git status --porcelain)" ]; then
   echo "No changes to commit."
   cd ..
@@ -99,7 +87,7 @@ if [ -z "$(git status --porcelain)" ]; then
   exit 0
 fi
 
-git add -A "${SCOPES[@]}"
+git add -A
 git commit -m "$COMMIT_MSG"
 git push origin "$BRANCH"
 
@@ -108,4 +96,4 @@ cd ..
 echo "Deleting fresh clone..."
 rm -rf "$REPO_DIR"
 
-echo "Done. Scoped folders mirrored to $BRANCH."
+echo "Done. Branch now mirrors package_src: $BRANCH"
