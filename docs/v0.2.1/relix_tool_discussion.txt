@@ -1,0 +1,233 @@
+
+V0.2.1 relix tools feature 
+Agreed. Unnecessary for deploy. Will fix in v0.2.1:
+
+v0.2.1 fix: Prompt resolution becomes command-aware — only prompt for what the command needs.
+Command	Needs
+deploy	VM IPs, username, GitHub token
+test	VM IPs, username, DB host
+start/stop/delete	VM IPs, username
+For now, export RELIX_DB_HOST=localhost avoids it.
+
+
+
+
+Agree. Same issue as the DB host prompt — all prompts resolve upfront regardless of command.
+Command	Needs GitHub token?
+deploy	Yes
+start	No
+test	No
+stop	No
+delete	No
+CR for v0.2.1: Command-aware prompt resolution. Only prompt for what the command needs.
+For now, set env var to skip the prompt:
+export GITHUB_TOKEN=skip
+It won't be used by delete/start/stop — just avoids the prompt.
+
+
+CR-006 — Automate relix-tools Deployment to relix-vm
+Status: Planned for v0.2.1
+Problem: Tests execute on relix-vm but relix-tools (test files, modules, automation/) is only on relix-tools-vm. Current workaround is manual SCP.
+Requirement: relix-deploy deploy must automatically copy relix-tools to relix-vm and install test dependencies in the venv.
+Updated deploy flow: git clone relix → checkout ref → create venv → pip install relix → scp relix-tools to relix-vm → pip install pytest + deps in venv.
+YAML addition: sync_tools_to_runtime: true, install_test_deps: true under lifecycle.deploy.
+Non-goals: relix-tools is not pip-installed as a package. relix-tools repo is not cloned on relix-vm (SCP copy only).
+
+CR-007 — Command-Aware Prompt Resolution
+Status: Planned for v0.2.1
+Problem: All PROMPT placeholders and GitHub token resolve upfront regardless of command. Delete/stop/start prompt for DB host and GitHub token unnecessarily.
+Requirement: Prompt resolution must be command-scoped. Deploy needs VM IPs, username, GitHub token. Test needs VM IPs, username, DB host. Start/stop/delete need VM IPs, username only.
+
+
+
+CR-008 — Pytest Report Integration for Combined Summary
+Status: Planned for v0.2.1
+Problem: Test suites run via pytest but output goes to stdout only. No report.json written to report directory. Combined summary tables show empty because no discoverable report files exist.
+Requirement: Test commands must generate structured output that combined_summary.py can discover and aggregate.
+Approach: Add --junitxml to pytest commands in YAML. Update combined_summary.py to discover and parse both report.json and report.xml (junit). Populate Table 1 from junit XML when report.json is absent.
+Non-goal: Custom pytest plugin. Keep it simple — junit XML is standard pytest output.
+
+
+
+CR	Issue	Addressed in v0.2.0?	Status
+CR-006	relix-tools not on relix-vm	No	Manual SCP workaround. Planned v0.2.1
+CR-007	Prompts for DB host/token on all commands	No	export workaround. Planned v0.2.1
+CR-008	Combined summary tables empty (no report.json)	No	--junitxml in YAML workaround. Planned v0.2.1
+All three are documented as CRs, workarounds in place, implementation deferred to v0.2.1.
+————
+
+Extend CR-005 in v0.2.1 like this:
+CR-005-A — Infrastructure Selection Modes
+Target: relix-tools v0.2.1
+Add two independent concepts:
+Concept	Meaning
+depth_profile	How much infrastructure participates
+selection_mode	How infrastructure is selected
+New selection modes
+fixed
+random
+full_set
+Example
+solutions:
+  core_runtime:
+    load:
+      enabled: true
+      depth_profile: single_system
+      selection_mode: fixed
+      infrastructure_id: postgres_benchmark
+
+    performance:
+      enabled: true
+      depth_profile: single_system
+      selection_mode: fixed
+      infrastructure_id: postgres_benchmark
+For DB sensitivity:
+solutions:
+  core_runtime:
+    load:
+      enabled: true
+      depth_profile: random_group
+      selection_mode: random
+      random_seed: 12345
+Rule
+Same-VM DB sensitivity testing:
+    use depth D / random or full_set
+
+Cross-VM parallelism testing:
+    use fixed infrastructure
+So yes: extend CR-005 in v0.2.1, but keep v0.2.0 as core_runtime + single_system.
+
+Yes — for feature/regression, fixed DB per connector is better.
+ 
+Because feature/regression should answer:
+Does this connector work correctly?
+Did this connector regress?
+So each DB connector should have explicit tests:
+feature/postgres/
+feature/mysql/
+feature/sqlserver/
+feature/oracle/
+or:
+feature/
+  test_postgres_connector.py
+  test_mysql_connector.py
+  test_sqlserver_connector.py
+The DB type should be intentional, not randomly selected.
+Correct split
+Test type	DB selection
+Feature	Fixed / explicit DB connector
+Regression	Fixed / explicit DB connector
+Load same VM	Depth D / random or full-set allowed
+Performance same VM	Depth D / random or full-set allowed
+Cross-VM scaling	Fixed DB only
+Why
+Feature/regression need deterministic coverage:
+Postgres connector PASS
+MySQL connector PASS
+Oracle connector PASS
+Random DB selection could miss one connector.
+Load/performance can use D because they study behavior across infrastructure.
+CR-005 v0.2.1 rule
+Add this:
+Feature and regression suites MUST use explicit infrastructure selection.
+
+Load and performance suites MAY use fixed, random, or full-set infrastructure selection depending on benchmark objective.
+
+Cross-VM scalability benchmarking MUST use fixed infrastructure selection.
+So yes: hardcode DB type in feature/regression tests or bind each test to an explicit connector profile.
+
+Yes.
+ 
+Once connectors become first-class supported capabilities in v0.2.1, each executed test should have a unique execution identity.
+ 
+Example:
+UAT-V02-001
+Snapshot completes
+is the logical test case.
+ 
+Execution instances become:
+Test ID	Connector
+UAT-V02-001	postgres
+UAT-V02-001	mysql
+UAT-V02-001	sqlserver
+UAT-V02-001	oracle
+and reports record:
+{
+  "test_id": "UAT-V02-001",
+  "connector": "postgres",
+  "status": "PASS"
+}
+I would not create:
+UAT-V02-PG-001
+UAT-V02-MY-001
+UAT-V02-OR-001
+because that duplicates the business test.
+ 
+The business requirement is still:
+UAT-V02-001
+Connector is metadata.
+ 
+⸻
+ 
+However, for report uniqueness you need an execution key:
+test_id + connector
+or
+test_id + connector + solution
+Example:
+{
+  "test_id": "UAT-V02-001",
+  "connector": "postgres",
+  "solution": "core_runtime"
+}
+Then summary can show:
+Test ID	Connector	Status
+UAT-V02-001	postgres	PASS
+UAT-V02-001	mysql	PASS
+UAT-V02-001	sqlserver	PASS
+UAT-V02-001	oracle	PASS
+This aligns with your CR-005 philosophy:
+Requirement/Test ID
+    = stable
+
+Connector
+    = metadata
+
+Solution
+    = metadata
+
+Depth
+    = metadata
+Much easier to maintain than creating hundreds of connector-specific UAT IDs.
+
+Prefer:
+UAT-V02-001
+connector = postgres
+not:
+UAT-V02-001-PG
+UAT-V02-001-oracle
+Reason: the test case is same, only connector changes.
+ 
+Use report key:
+execution_id = UAT-V02-001:postgres
+execution_id = UAT-V02-001:oracle
+Report row:
+Test ID	Connector	Execution ID	Status
+UAT-V02-001	postgres	UAT-V02-001:postgres	PASS
+UAT-V02-001	oracle	UAT-V02-001:oracle	PASS
+So:
+Stable test ID = UAT-V02-001
+Variant metadata = connector
+Unique execution key = test_id + connector
+
+
+
+
+
+
+
+
+
+
+  
+
+
