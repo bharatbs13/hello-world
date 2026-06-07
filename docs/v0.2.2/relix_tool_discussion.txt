@@ -1,0 +1,902 @@
+Relix tool v0.2.2 
+
+
+Yes, but keep it as a test-time override, not the primary Relix config.
+For v0.2.2, relix-tools can add:
+relix-deploy test \
+  --version 0.2.2 \
+  --run-mode perf \
+  --phase 2 \
+  --suite load \
+  --relix-config runtime.parallelism.enabled=true \
+  --relix-config runtime.parallelism.worker_count=4
+Or simpler dedicated args:
+--parallelism-enabled
+--worker-count 4
+I prefer dedicated args for this case:
+relix-deploy test \
+  --version 0.2.2 \
+  --run-mode perf \
+  --phase 2 \
+  --suite load \
+  --parallelism-enabled \
+  --worker-count 4
+Rule:
+Relix config owns the default.
+relix-tools CLI can override for test runs.
+Reports must record the effective values.
+So output metadata should include:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4
+}
+
+Yes. That is the right flexible testing model.
+relix-tools should support
+parallelism = on/off
+worker_count = N
+db_type / infrastructure_id = fixed or selected by D
+and capture all of this in metadata:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "db_type": "postgres",
+  "infrastructure_id": "postgres_benchmark",
+  "depth_profile": "single_system"
+}
+Same-VM testing
+Use same VM, vary DB and parallelism:
+Test	DB	Parallelism	Purpose
+Feature / regression	each DB explicitly	on/off	correctness under both modes
+Load / perf	D or full DB set	on/off	DB sensitivity + parallelism behavior
+Cross-VM testing
+Keep DB fixed.
+VM	DB	Worker Count
+2 vCPU	postgres_benchmark	1 or 2
+4 vCPU	postgres_benchmark	2 or 4
+8 vCPU	postgres_benchmark	4 or 8
+This avoids too many variables.
+ 
+Rule:
+Same VM = DB variation allowed
+Cross VM = fixed DB only
+So yes: flexible testing, but controlled experiment design.
+
+
+Yes, solution can be another benchmark variant, but do not mix it with VM scaling in the same comparison.
+Use this rule:
+Cross-VM benchmark = one solution + one fixed DB + one workload
+Example:
+core_runtime + postgres_benchmark
+VM 2 CPU → VM 4 CPU → VM 8 CPU
+Separately:
+migration + fixed source/target DB pair
+VM 2 CPU → VM 4 CPU → VM 8 CPU
+So solution is a benchmark dimension, but each benchmark study should hold it fixed.
+Good metadata:
+{
+  "solution": "core_runtime",
+  "infrastructure_id": "postgres_benchmark",
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "vm_profile": "4vcpu_8gb"
+}
+Rule:
+Change one major variable at a time:
+- VM size
+- worker count
+- DB type
+- solution
+For clean results, don’t vary all together.
+
+Yes.
+ 
+For clean benchmarking:
+Solution comparison:
+    same VM
+    fixed DB per solution
+    compare solution behavior
+Example:
+Solution	VM	DB Setup
+core_runtime	4 vCPU / 8 GB	postgres_benchmark
+migration	4 vCPU / 8 GB	fixed source-target pair
+For scaling:
+Scaling comparison:
+    one solution
+    one fixed DB setup
+    multiple VMs
+Example:
+Solution	DB Setup	VM
+core_runtime	postgres_benchmark	2 vCPU
+core_runtime	postgres_benchmark	4 vCPU
+core_runtime	postgres_benchmark	8 vCPU
+Rule:
+Same VM = compare solutions / DBs
+Cross VM = fixed solution + fixed DB
+
+
+Yes.
+relix-tools should provide a generic load/perf automation framework that can run for any enabled solution.
+Tester responsibility:
+Select one solution
+Select fixed infrastructure
+Select VM profile
+Run load/perf
+Repeat on other VM profiles
+Compare reports
+Rule:
+relix-tools = execute and report
+tester = experiment design
+For cross-VM scaling:
+one solution
+one fixed DB setup
+multiple VMs
+Do not let automation randomly vary solution/DB during scaling tests.
+
+
+
+Mostly agree, with one refinement.
+Yes, parallelism becomes a new execution dimension
+From Relix v0.2.2 onward:
+Solution
+Connector / Infrastructure
+Depth
+Parallelism
+are all execution dimensions.
+ 
+Metadata should absolutely capture:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4
+}
+and summary tables should include:
+Solution	DB	Parallelism	Workers	Status
+core_runtime	postgres	false	1	PASS
+core_runtime	postgres	true	4	PASS
+ 
+⸻
+ 
+I would NOT put parallelism in the report directory hierarchy
+Current hierarchy:
+version
+  → tag/run_mode
+    → run_id
+      → phase
+        → domain
+          → suite
+            → solution
+is still good.
+ 
+I would not create:
+phase2/
+  backend/
+    load/
+      core_runtime/
+        parallel_true/
+because every new execution dimension explodes the directory tree.
+ 
+Instead:
+run_metadata.json
+metrics.json
+report.json
+capture:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4
+}
+ 
+⸻
+ 
+CLI
+Yes.
+For v0.2.2:
+relix-deploy test \
+  --release-mode \
+  --parallelism-enabled \
+  --worker-count 4
+or
+relix-deploy test \
+  --release-mode \
+  --parallelism off
+ 
+⸻
+ 
+One thing I would NOT do
+I would NOT make:
+release-mode
+phase=all
+suite=all
+parallelism=both
+the default.
+ 
+Reason:
+1 worker
+2 worker
+4 worker
+8 worker
+can multiply execution time dramatically.
+ 
+Instead:
+parallelism = current runtime configuration
+by default.
+ 
+If you want both:
+relix-deploy test \
+    --release-mode \
+    --parallelism-matrix
+or manually run twice:
+parallelism off
+parallelism on
+ 
+⸻
+ 
+My recommendation
+v0.2.2 metadata
+{
+  "parallelism_enabled": true,
+  "worker_count": 4
+}
+Summary table
+Test ID	Solution	DB	Parallelism	Workers	Result
+CLI
+--parallelism-enabled
+--worker-count N
+Directory structure
+No changes
+Release-mode
+Single configuration by default.
+Matrix execution should be explicit.
+That keeps relix-tools flexible without turning every release run into a combinatorial explosion
+
+
+Agree.
+For v0.2.2+, summary should split into two report families:
+1. UAT Summary
+Covers:
+feature
+regression
+Across:
+phase
+solution
+connector / DB
+parallelism on/off
+Example columns:
+Phase	Test ID	Solution	DB	Parallelism	Workers	Status
+phase1	UAT-V02-001	core_runtime	mock	false	1	PASSED
+phase2	UAT-V02-001	core_runtime	postgres	true	4	PASSED
+This validates correctness.
+ 
+⸻
+ 
+2. Load / Performance Summary
+Covers only:
+phase2
+load
+performance
+Across:
+solution
+DB / infrastructure
+depth
+parallelism on/off
+worker_count
+Example columns:
+Test ID	Solution	DB	Depth	Parallelism	Workers	Throughput	Avg Latency	SLA Status
+LOAD-V02-001	core_runtime	postgres	single_system	false	1	10k/s	-	NOT_CONFIGURED
+PERF-V02-001	core_runtime	postgres	single_system	true	4	-	42ms	NOT_CONFIGURED
+This validates performance observations.
+ 
+⸻
+ 
+Report files
+Keep current combined summary, but add specialized summaries:
+run_id/
+├── uat_summary.md
+├── uat_summary.json
+├── load_perf_summary.md
+├── load_perf_summary.json
+├── combined_summary.md
+└── combined_summary.json
+Rule
+feature/regression → UAT summary
+load/performance   → load_perf summary
+And:
+load/performance only execute for phase2
+Do not put load/perf in phase1 unless explicitly reintroduced later.
+
+
+
+Yes. For UAT summary, keep it aggregated, not one huge table.
+ 
+Model:
+execution_id = test_id + solution + db_type + parallelism + worker_count
+But summary view should be DB-wise rollup.
+UAT summary table
+DB Type	Solution	Parallelism	Workers	Total	Passed	Failed	Skipped	Status
+mock	core_runtime	false	1	13	13	0	0	PASSED
+postgres	core_runtime	false	1	18	18	0	0	PASSED
+postgres	core_runtime	true	4	18	18	0	0	PASSED
+oracle	core_runtime	true	4	18	17	1	0	FAILED
+Failed list only when needed
+Failed Tests
+DB Type	Solution	Test ID	Execution ID	Failure
+oracle	core_runtime	UAT-V02-003	UAT-V02-003:core_runtime:oracle:p4	checksum mismatch
+Mock handling
+Agree:
+mock = db_type
+So phase1 does not need special report logic.
+ 
+Example:
+{
+  "db_type": "mock",
+  "infrastructure_id": "mock",
+  "solution": "core_runtime",
+  "test_id": "UAT-V02-001"
+}
+This keeps the summary uniform:
+mock
+postgres
+mysql
+oracle
+all appear as infrastructure types.
+
+
+
+
+Yes, I agree.
+ 
+Once you adopt:
+db_type = mock
+then:
+phase1
+becomes an implementation detail.
+ 
+For reporting, users care about:
+Solution
+DB Type
+Parallelism
+Worker Count
+Pass/Fail
+not:
+Phase 1
+Phase 2
+Example:
+DB Type	Solution	Parallelism	Workers	Passed	Failed
+mock	core_runtime	false	1	13	0
+postgres	core_runtime	false	1	18	0
+postgres	core_runtime	true	4	18	0
+oracle	core_runtime	true	4	17	1
+This is much more meaningful.
+ 
+Internally:
+mock
+    → phase1 implementation
+
+postgres
+    → phase2 implementation
+but summary doesn’t need to expose that.
+ 
+I would still keep phase in raw metadata:
+{
+  "phase": "1",
+  "db_type": "mock"
+}
+for debugging and traceability.
+ 
+But in:
+uat_summary.md
+uat_summary.json
+I would show:
+db_type
+and hide:
+phase
+So:
+Phase = execution detail
+DB Type = reporting dimension
+That’s a cleaner long-term model, especially once you have many connectors.
+
+Yes, define a fallback policy.
+Suggested config
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+    fallback_policy: single_worker
+Allowed values:
+Policy	Meaning
+single_worker	If parallel adapter is missing/unsupported, run legacy single-worker path
+fail_fast	If parallel adapter is missing/unsupported, fail immediately
+Production recommendation
+For early production:
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+    fallback_policy: single_worker
+For controlled performance rollout:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 2
+    fallback_policy: single_worker
+For strict release validation:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 4
+    fallback_policy: fail_fast
+UAT must test
+Test	Expected
+parallelism off	legacy behavior works
+parallelism on + supported adapter	parallel path works
+parallelism on + missing adapter + single_worker	falls back and reports fallback
+parallelism on + missing adapter + fail_fast	fails with clear error
+Report metadata should include:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "fallback_policy": "single_worker",
+  "fallback_used": true
+}
+
+
+
+
+Yes, possible.
+For fallback policy, test mostly in mock/Phase 1.
+Recommended split
+Test	Best place
+parallelism off → legacy path	mock + real DB
+parallelism on + supported adapter	mock first, real DB later
+missing adapter + single_worker fallback	mock only
+missing adapter + fail_fast error	mock only
+fallback metadata captured	mock only
+Phase 2 should mainly verify:
+parallelism on/off works against real DB
+No need to force artificial missing-adapter cases on real DB. That is better tested with mocks.
+
+Yes. That becomes a UAT execution policy in relix-tools.
+ 
+Model:
+UAT test case = product validation
+Execution policy = where/how to run it
+Execution ID = test_id + db_type + config variant
+Example policy:
+uat_policy:
+  UAT-V02-001:
+    db_types: [mock, postgres, mysql, oracle]
+
+  UAT-V02-005:
+    db_types: [mock, postgres]
+
+  UAT-V022-PAR-FALLBACK-001:
+    db_types: [mock]
+    parallelism:
+      enabled: true
+      fallback_policy: single_worker
+So fallback tests can be:
+mock only
+while connector correctness tests can be:
+all supported DBs
+Execution ID:
+UAT-V02-001:mock
+UAT-V02-001:postgres
+UAT-V02-001:mysql
+UAT-V022-PAR-FALLBACK-001:mock:parallel_on:single_worker
+Summary stays compact:
+DB Type	Total	Passed	Failed	Failed IDs
+mock	20	20	0	-
+postgres	18	18	0	-
+mysql	18	17	1	UAT-V02-003:mysql
+So yes:
+relix-tools needs UAT policy:
+    which UAT runs on which DB/config
+
+report needs:
+    execution_id based on DB/config variant
+
+Why parallelism on uat level , this is another dimensions on cli arg like phase ? 
+
+Agree — parallelism should not be inside individual UAT policy.
+It is an execution dimension, like:
+phase
+suite
+solution
+db_type
+parallelism
+worker_count
+So CLI/config should control it globally for the run:
+relix-deploy test \
+  --phase all \
+  --suite feature \
+  --parallelism on \
+  --worker-count 4
+UAT policy should only say:
+which test runs on which DB/config scope
+Example:
+uat_policy:
+  UAT-V02-001:
+    db_types: [mock, postgres, mysql, oracle]
+
+  UAT-V022-FALLBACK-001:
+    db_types: [mock]
+Then execution ID is composed from run dimensions:
+UAT-V02-001:postgres:parallel_on:w4
+UAT-V022-FALLBACK-001:mock:parallel_on:w4
+So final rule:
+Parallelism = run-level execution dimension
+UAT policy = test-to-DB applicability only
+
+
+ Do we need db type execution cli , if we config on test case level, or both but uat level override? 
+
+Use both, but with clear precedence.
+UAT policy = default applicability
+CLI db_type = run-time filter
+Example policy:
+uat_policy:
+  UAT-V02-001:
+    db_types: [mock, postgres, mysql, oracle]
+
+  UAT-V022-FALLBACK-001:
+    db_types: [mock]
+CLI:
+relix-deploy test --suite feature --db-type postgres
+Meaning:
+Run only UATs where postgres is allowed.
+Skip tests that are mock-only.
+For all DBs:
+relix-deploy test --suite feature --db-type all
+Precedence:
+effective_db_types = CLI db_type ∩ UAT policy db_types
+So CLI never overrides safety. It only filters.
+ 
+Example:
+Test	Policy DBs	CLI --db-type postgres	Result
+UAT-V02-001	mock, postgres, mysql	postgres	run
+UAT-FALLBACK-001	mock	postgres	skip
+UAT-V02-002	postgres, oracle	postgres	run
+This is clean and safe.
+
+Why not use “all_db” at uat level that mean all supported connector . To make config simple ? 
+
+Yes. That’s actually cleaner.
+ 
+Instead of:
+UAT-V02-001:
+  db_types:
+    - postgres
+    - mysql
+    - oracle
+    - sqlserver
+use:
+UAT-V02-001:
+  db_types: all_db
+Meaning:
+Run on all currently supported connectors.
+Then when v0.2.3 adds:
+snowflake
+mongodb
+the UAT automatically expands.
+ 
+Only special cases need explicit lists:
+UAT-V022-FALLBACK-001:
+  db_types: [mock]
+
+UAT-V022-CONNECTOR-SPECIFIC-001:
+  db_types: [postgres]
+I would support:
+Value	Meaning
+all_db	all supported real connectors
+mock	mock only
+[postgres, oracle]	explicit subset
+Then CLI remains:
+--db-type all
+--db-type postgres
+Resolution:
+UAT policy
+    ↓
+expand all_db
+    ↓
+apply CLI filter
+This keeps UAT config very small and future-proof.
+
+
+Any changes needed in load & performance script if parallelism is on ? 
+
+Yes, but only small metadata/config changes.
+The load/performance scripts should not implement parallelism themselves. Relix implements it.
+They should:
+1. Pass or rely on Relix runtime config:
+parallelism.enabled
+worker_count
+fallback_policy
+1. Record effective values in metrics.json:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "fallback_policy": "single_worker",
+  "fallback_used": false
+}
+3. Keep the same measurement logic:
+LOAD-V02-001  → throughput
+PERF-V02-001  → latency
+4. Summary should add columns:
+Parallelism | Workers | Fallback Used
+So:
+Relix changes = parallel execution behavior
+relix-tools load/perf scripts = pass config + capture metadata + report
+
+
+So when i have parallelism on / off for relix , same shall work for “relix tool” automation also ? 
+
+
+Yes.
+relix-tools automation should work the same way whether Relix parallelism is:
+off
+on
+because relix-tools only:
+passes config
+runs tests
+collects reports
+records metadata
+Relix decides execution behavior.
+Expected relix-tools changes for v0.2.2:
+--parallelism-enabled
+--worker-count N
+--fallback-policy single_worker|fail_fast
+Then reports include:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "fallback_policy": "single_worker",
+  "fallback_used": false
+}
+So same automation pipeline, just extra execution dimensions.
+
+
+So whatever dimensions we are using relix tool execution level or individual  module/ uat level , need to captured in report . Agree? 
+
+Yes. That should be a core reporting rule.
+Any dimension that can change execution behavior
+must be captured in report metadata.
+Examples:
+Dimension	Capture where
+version	run_metadata.json
+run_mode / release_mode	run_metadata.json
+solution	run_metadata.json, report.json, metrics.json
+test_id / execution_id	report.json, metrics.json
+db_type / connector	report.json, metrics.json
+infrastructure_id	execution_plan.json, run_metadata.json
+depth_profile	execution_plan.json, run_metadata.json
+parallelism_enabled	run_metadata.json, report.json, metrics.json
+worker_count	run_metadata.json, report.json, metrics.json
+fallback_policy / fallback_used	report.json, metrics.json
+SLA status	metrics.json, summaries
+Rule:
+Execution dimension not in report = debugging gap.
+So for future summaries:
+UAT summary:
+  test_id, execution_id, solution, db_type, parallelism_enabled, worker_count, status
+
+Load/perf summary:
+  test_id, solution, db_type, infrastructure_id, depth_profile,
+  parallelism_enabled, worker_count, throughput, latency, SLA status
+
+
+Why worker count as an arg , does it make it flexible? Or core count auto discovery? But at cli level we can reserve required capacity ? Pros & cons . 
+
+worker_count as a CLI arg is useful because it makes testing controlled and repeatable.
+Option 1: Explicit 
+--worker-count
+Pros:
+* Best for benchmarking.
+* You know exactly what was tested.
+* Easy comparison: 1 vs 2 vs 4 vs 8.
+* Prevents Relix from silently choosing different values on different VMs.
+Cons:
+* User must decide the value.
+* Bad value can hurt performance.
+Good for:
+relix-tools test --worker-count 4
+Option 2: Auto-discovery from CPU cores
+Pros:
+* Easier for production.
+* Uses VM capacity automatically.
+* Less user tuning.
+Cons:
+* Benchmarking becomes less controlled.
+* Auto choice may be wrong.
+* Harder to compare runs unless auto-resolved value is reported.
+Good for:
+parallelism:
+  worker_count: auto
+Best design
+Support both:
+--worker-count 4
+and:
+--worker-count auto
+Report must record effective value:
+{
+  "worker_count_requested": "auto",
+  "worker_count_effective": 6,
+  "cpu_count_detected": 8
+}
+Recommended default:
+parallelism off → worker_count = 1
+parallelism on  → worker_count = auto
+For serious benchmarking:
+always use explicit worker_count
+
+
+So better use option 1 . I can have 16 core & test on same vm with different core . So it’s not cross vm benchmarking , it’s cross worker benchmarking. 
+
+Yes — for v0.2.2, explicit worker_count is better.
+ 
+That gives you cross-worker benchmarking on the same VM:
+Same VM
+Same DB
+Same dataset
+Same Relix version
+Different worker_count
+Example:
+Run	VM	DB	Workers	Purpose
+A	16-core VM	postgres_benchmark	1	baseline
+B	16-core VM	postgres_benchmark	2	scaling
+C	16-core VM	postgres_benchmark	4	scaling
+D	16-core VM	postgres_benchmark	8	scaling
+E	16-core VM	postgres_benchmark	16	saturation check
+This is cleaner than cross-VM benchmarking because only one main variable changes:
+worker_count
+Recommended CLI:
+relix-deploy test \
+  --version 0.2.2 \
+  --run-mode perf \
+  --phase 2 \
+  --suite load \
+  --parallelism-enabled \
+  --worker-count 4
+Report metadata:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "vm_cpu_count": 16,
+  "db_type": "postgres",
+  "infrastructure_id": "postgres_benchmark"
+}
+Rule:
+v0.2.2 primary benchmark = cross-worker benchmark
+cross-VM benchmark = optional later
+
+
+Testing on different vm also possible but unnecessary 
+
+I agree.
+ 
+For v0.2.2, cross-VM benchmarking is possible, but not necessary to prove the feature.
+ 
+The primary question is:
+Does internal parallelism improve throughput?
+You can answer that completely with:
+Same VM
+Same DB
+Same dataset
+Same solution
+worker_count = 1,2,4,8,16
+If results look like:
+Workers	Throughput
+1	1000
+2	1800
+4	3400
+8	6200
+16	6400
+you already learned:
+Optimal worker count ≈ 8
+Beyond that, overhead dominates
+No second VM required.
+ 
+⸻
+ 
+Cross-VM benchmarking answers a different question:
+Does Relix scale with larger hardware?
+Example:
+VM	Workers
+4 cores	4
+8 cores	8
+16 cores	16
+That’s useful later, but not needed to validate the parallelism framework itself.
+ 
+⸻
+ 
+Therefore I’d define:
+v0.2.2 acceptance
+    Cross-worker benchmarking
+    Single VM
+
+Optional R&D
+    Cross-VM benchmarking
+That keeps scope small and gives clear evidence whether the parallelism implementation is worthwhile.
+
+
+Then we can stick to original methodology - different vm with different core capacity ? 
+
+Yes, you can stick to the original methodology.
+ 
+In fact, for Relix, it may be more valuable because the business question is often:
+If customer upgrades VM,
+does Relix become faster?
+not:
+What is the optimal worker count on one VM?
+So your methodology becomes:
+VM	CPU	Memory	Worker Count
+Small	2	4 GB	2
+Medium	4	8 GB	4
+Large	8	16 GB	8
+XL	16	32 GB	16
+Rule:
+worker_count = VM CPU count
+or
+worker_count = min(cpu_count, configured_max)
+Then benchmark:
+same solution
+same DB
+same dataset
+different VM capacity
+This directly answers:
+How does Relix scale when customer buys a bigger machine?
+which is probably more useful than:
+1,2,4,8,16 workers on same machine
+for release validation.
+ 
+⸻
+ 
+I would still capture:
+{
+  "vm_cpu_count": 8,
+  "vm_memory_gb": 16,
+  "worker_count": 8
+}
+because later you may discover:
+8 CPUs
+4 workers
+performs better than:
+8 CPUs
+8 workers
+and you’ll want the metadata.
+ 
+⸻
+ 
+So for v0.2.2:
+Primary methodology:
+    Different VM sizes
+    Fixed solution
+    Fixed DB
+    Fixed dataset
+
+Capture:
+    worker_count
+    cpu_count
+    memory
+That’s completely reasonable and keeps the testing model aligned with how customers will actually deploy Relix.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
