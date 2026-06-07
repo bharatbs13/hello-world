@@ -1,0 +1,604 @@
+V0.2.2 FRs (internal parallelism) 
+
+
+
+Yes. That would be a very clean release boundary.
+v0.2.0
+    Runtime foundation
+    Validation
+    Reporting
+    Load/Performance baseline
+
+v0.2.1
+    dlt integration
+    Deployment automation improvements
+    Tooling enhancements
+
+v0.2.2
+    Internal parallelism only
+Potential v0.2.2 scope:
+FR-070 Parallel Snapshot Workers
+FR-071 Parallel Reconciliation
+FR-072 Worker Configuration
+FR-073 Partitioned Table Processing
+FR-074 Parallel Batch Execution
+Out of scope:
+DWE
+Distributed scheduling
+Multi-node execution
+Worker discovery
+Queue-based orchestration
+Autoscaling
+Those belong to:
+Relix 1.x
+A good success criterion for v0.2.2 is:
+Same workload
+Same database
+Same configuration
+
+1 worker  -> baseline
+2 workers -> higher throughput
+4 workers -> higher throughput
+The exact scaling factor doesn’t need to be guaranteed, but Relix should be capable of utilizing additional CPU resources when available.
+So:
+v0.2.2 = Vertical Scaling (single VM)
+v1.x   = Horizontal Scaling (DWE)
+That’s a very natural evolution path.
+
+
+Absolutely.
+ 
+In fact, that should be the primary acceptance criterion for v0.2.2.
+ 
+A common failure mode is:
+1 worker  -> 1000 rows/sec
+2 workers -> 850 rows/sec
+4 workers -> 600 rows/sec
+because of:
+Lock contention
+Context switching
+Thread synchronization
+Shared queues
+Connection pool bottlenecks
+Database contention
+Memory pressure
+Then “parallelism” is actually making things worse.
+ 
+So v0.2.2 should not be:
+Add workers
+It should be:
+Add workers only when beneficial
+I would define the principle as:
+FR-070 — Adaptive Parallel Snapshot Execution
+
+Objective:
+Utilize available compute resources without reducing throughput.
+
+Acceptance:
+Parallel execution MUST NOT materially degrade throughput relative to single-worker execution under equivalent workload conditions.
+Then test:
+Workers	Throughput
+1	baseline
+2	compare
+4	compare
+8	compare
+Expected:
+2 workers >= 1 worker
+4 workers >= 2 workers
+Not necessarily linear scaling, but:
+No regression
+is the first requirement.
+ 
+I would actually make v0.2.2 milestones:
+Phase 1
+    Add worker framework
+
+Phase 2
+    Benchmark scaling
+
+Phase 3
+    Auto-select optimal worker count
+because many systems find that:
+2 workers = best
+4 workers = same
+8 workers = worse
+The goal is not “maximum parallelism”.
+ 
+The goal is:
+maximum throughput
+minimum latency
+minimum resource waste
+which may end up being fewer workers than available cores.
+
+
+Possible, but for Relix roadmap:
+v0.2.2 = internal parallelism only
+v1.x   = external / distributed parallelism (DWE)
+Do not mix both in one release.
+Type	Meaning	Version
+Internal parallelism	multiple workers/threads/processes inside one Relix VM	v0.2.2
+External parallelism	multiple Relix worker nodes across VMs via DWE	v1.x
+Trying both together is overkill because if performance changes, you won’t know whether it came from:
+internal worker tuning
+or
+distributed scheduling
+or
+network overhead
+or
+queue overhead
+Clean progression:
+Single worker
+→ internal parallel workers
+→ optimized single-VM scaling
+→ DWE distributed workers
+So yes, possible — but not now.
+
+
+Yes.
+If you add internal parallelism in v0.2.2, you need a switch.
+Otherwise:
+v0.2.0 behavior
+changes unexpectedly.
+Minimum:
+runtime:
+  worker_count: 1
+or
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+Then:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 4
+for testing.
+ 
+⸻
+ 
+For benchmarking:
+Run A
+worker_count = 1
+
+Run B
+worker_count = 2
+
+Run C
+worker_count = 4
+
+Run D
+worker_count = 8
+using same:
+DB
+dataset
+VM
+This gives a clean scaling curve.
+ 
+⸻
+ 
+I would also store it in reports:
+{
+  "worker_count": 4,
+  "parallelism_enabled": true
+}
+Otherwise later you’ll see:
+throughput = 12000 rows/sec
+and won’t know which configuration produced it.
+ 
+⸻
+ 
+So for v0.2.2:
+Feature:
+    Internal Parallelism
+
+Configuration:
+    worker_count
+
+Default:
+    worker_count = 1
+
+Benchmark:
+    compare 1,2,4,8 workers
+That is enough. No DWE concepts needed yet.
+
+
+Use both:
+v0.2.1 UAT = v0.2.0 UAT baseline + v0.2.1-specific UAT additions
+Rule
+Test type	v0.2.1 behavior
+Existing v0.2.0 UAT	Must still pass
+New connector UAT	Add new/variant executions
+New feature UAT	Add new test cases
+Load/perf	Reuse same IDs, add connector/solution metadata
+Example
+UAT-V02-001 snapshot completes
+In v0.2.0:
+UAT-V02-001 + postgres
+In v0.2.1:
+UAT-V02-001 + postgres
+UAT-V02-001 + mysql
+UAT-V02-001 + oracle
+The test ID stays same. Connector is metadata.
+ 
+For truly new v0.2.1 behavior, add:
+UAT-V021-001
+or cleaner:
+UAT-V02-019
+I prefer continuous numbering:
+UAT-V02-019
+UAT-V02-020
+because it keeps the v0.2 family together.
+Final model
+Each new release runs:
+1. all previous applicable UATs
+2. new UATs introduced in this release
+3. connector/solution variants where applicable
+So v0.2.1 is not separate from v0.2.0. It extends it.
+
+Yes.
+ 
+If v0.2.2 introduces internal parallelism, Relix runtime must be thread-safe or concurrency-safe.
+ 
+Minimum areas:
+Area	Must be safe
+Checkpoint writes	No duplicate/corrupt checkpoints
+Event store	Ordered/idempotent events
+State transitions	No race conditions
+Batch assignment	No duplicate batch processing
+Reconciliation	Consistent final result
+DB writes	Idempotent / transactional
+Error handling	One failure should not corrupt global state
+Key rule:
+Parallel workers must not change correctness semantics.
+So before performance gain, acceptance is:
+1 worker result == N worker result
+Same rows, same checksums, same reconciliation status, no duplicates.
+ 
+Then measure throughput.
+
+Use config + env override, not UI.
+For Relix v0.2.2, add runtime config like:
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+Then for testing:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 4
+Also support env override:
+export RELIX_PARALLELISM_ENABLED=true
+export RELIX_WORKER_COUNT=4
+Two modes to test
+Single-worker mode
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+Purpose:
+baseline correctness + baseline throughput
+Parallel mode
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 2
+or:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 4
+Purpose:
+correctness equality + throughput improvement
+relix-tools role
+relix-tools should pass config/env to Relix, then record in report metadata:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4
+}
+So you can compare:
+worker_count=1
+worker_count=2
+worker_count=4
+No UI needed.
+
+
+Yes, but keep it as a test-time override, not the primary Relix config.
+For v0.2.2, relix-tools can add:
+relix-deploy test \
+  --version 0.2.2 \
+  --run-mode perf \
+  --phase 2 \
+  --suite load \
+  --relix-config runtime.parallelism.enabled=true \
+  --relix-config runtime.parallelism.worker_count=4
+Or simpler dedicated args:
+--parallelism-enabled
+--worker-count 4
+I prefer dedicated args for this case:
+relix-deploy test \
+  --version 0.2.2 \
+  --run-mode perf \
+  --phase 2 \
+  --suite load \
+  --parallelism-enabled \
+  --worker-count 4
+Rule:
+Relix config owns the default.
+relix-tools CLI can override for test runs.
+Reports must record the effective values.
+So output metadata should include:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4
+}
+
+
+
+
+For your current roadmap, yes.
+Relix v0.2.2 should limit parallelism to the data plane.
+Control Plane
+    ↓
+creates execution plan
+starts workflow
+tracks status
+manages checkpoints
+publishes events
+
+Data Plane
+    ↓
+reads data
+transforms data
+writes data
+reconciles data
+Only the data plane should become parallel.
+Examples:
+✓ Parallel snapshot readers
+✓ Parallel batch processors
+✓ Parallel writers
+✓ Parallel reconciliation workers
+
+✗ Parallel preflight
+✗ Parallel workflow orchestration
+✗ Parallel state machine management
+✗ Parallel deployment lifecycle
+Reason:
+Control plane work is tiny.
+Data plane work is expensive.
+Almost all throughput comes from:
+Read
+Transform
+Write
+Verify
+which are data-plane activities.
+ 
+⸻
+ 
+So I would define v0.2.2 as:
+FR-070 Internal Data Plane Parallelism
+Scope:
+Single Relix instance
+Single VM
+Multiple data workers
+Shared control plane
+Architecture:
+Control Plane (single)
+        │
+        ▼
+    Work Queue
+        │
+ ┌──────┼──────┐
+ ▼      ▼      ▼
+W1     W2     W3
+        ...
+Then later in DWE:
+Control Plane
+        │
+        ▼
+ Distributed Queue
+        │
+ ┌──────┼──────┐
+ ▼      ▼      ▼
+VM1    VM2    VM3
+That’s the natural progression.
+So my answer is:
+Relix v0.2.2:
+    Internal parallelism = Data Plane only
+
+Control Plane remains single-threaded/single-owner.
+That keeps the scope manageable and avoids introducing unnecessary complexity into orchestration logic.
+
+
+
+
+Yes, possible — and it should be designed that way.
+Make v0.2.2 parallelism a data-plane execution framework, not hardcoded only for snapshot.
+Good design:
+DataPlaneTask
+    read
+    process
+    write
+    reconcile
+Parallel engine executes any registered data-plane task:
+snapshot
+migration
+backup_restore
+replay
+Later, when a new data-plane function is added, it must declare:
+parallelizable: true/false
+partition_strategy
+worker_safe: true/false
+merge/reconcile strategy
+So v0.2.2 can start with:
+snapshot only
+but framework should allow:
+migration later
+backup later
+replay later
+Rule:
+New data-plane feature must either integrate with parallel executor
+or explicitly declare non-parallel execution.
+That keeps parallelism upgradeable without redesign.
+
+
+Yes, but it should be minimal integration code, not a redesign.
+Ideal model:
+Parallelism framework = stable
+New data-plane feature = registers a task adapter
+So for each new data-plane capability, you add:
+partition strategy
+worker function
+merge/reconcile strategy
+safety flags
+Example:
+snapshot_adapter
+migration_adapter
+backup_restore_adapter
+replay_adapter
+Each adapter answers:
+Can this task be parallelized?
+How should work be split?
+How should worker results be merged?
+What state/checkpoint rules apply?
+So yes, every new data-plane feature needs some code, because each feature has different semantics.
+But it should be limited to:
+new adapter/plugin
+tests
+config entry
+not changes to the core parallel engine.
+Good rule:
+Core parallel executor should remain unchanged.
+New data-plane functions extend it through adapters.
+So:
+Code change required?        Yes
+Core redesign required?      No
+Expected change size?        Small to medium
+That is the right architecture.
+
+Yes. Make it fail-fast by contract.
+Rule:
+Every new data-plane capability must declare its parallelism contract.
+Example required fields:
+parallelism:
+  supported: true | false
+  adapter: snapshot_parallel_adapter | null
+  fallback: single_worker | error
+If missing:
+ERROR: DATA_PLANE_PARALLELISM_CONTRACT_MISSING
+That forces developers to decide:
+parallelizable
+not parallelizable
+single-worker fallback
+So missed upgrade becomes visible during tests, not silently ignored.
+
+
+Correct.
+ 
+Backward compatibility rule:
+parallelism.enabled = false
+    ↓
+Relix runs exactly like v0.2.1
+So the fail-fast contract should apply only when:
+parallelism.enabled = true
+Behavior:
+Condition	Behavior
+Parallelism off	single-worker legacy path
+Parallelism on + contract exists	parallel execution
+Parallelism on + contract missing	fail fast
+Parallelism on + feature declares unsupported	either fallback or fail, based on policy
+Recommended default:
+parallelism:
+  enabled: false
+  worker_count: 1
+So existing users are safe.
+
+
+Yes, define a fallback policy.
+Suggested config
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+    fallback_policy: single_worker
+Allowed values:
+Policy	Meaning
+single_worker	If parallel adapter is missing/unsupported, run legacy single-worker path
+fail_fast	If parallel adapter is missing/unsupported, fail immediately
+Production recommendation
+For early production:
+runtime:
+  parallelism:
+    enabled: false
+    worker_count: 1
+    fallback_policy: single_worker
+For controlled performance rollout:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 2
+    fallback_policy: single_worker
+For strict release validation:
+runtime:
+  parallelism:
+    enabled: true
+    worker_count: 4
+    fallback_policy: fail_fast
+UAT must test
+Test	Expected
+parallelism off	legacy behavior works
+parallelism on + supported adapter	parallel path works
+parallelism on + missing adapter + single_worker	falls back and reports fallback
+parallelism on + missing adapter + fail_fast	fails with clear error
+Report metadata should include:
+{
+  "parallelism_enabled": true,
+  "worker_count": 4,
+  "fallback_policy": "single_worker",
+  "fallback_used": true
+}
+
+“Api / front end contract is not in scope if v0.2.2 as far as parallelism is concerned”
+
+How true ? m
+
+Mostly true.
+For Relix v0.2.2 parallelism, scope should be:
+Data plane internal execution only
+So frontend contract is clearly out of scope.
+For API contract, it depends:
+External API contract = out of scope
+Internal runtime config contract = in scope
+Meaning:
+Out of scope
+REST API changes
+UI controls
+frontend toggle
+new public API endpoints
+customer-facing parallelism controls
+In scope
+Relix config supports:
+  parallelism.enabled
+  worker_count
+  fallback_policy
+and relix-tools can pass/test those config values.
+So better statement:
+API/frontend contract changes are not in scope for v0.2.2.
+Only internal runtime configuration for data-plane parallelism is in scope.
+That is accurate.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
