@@ -1,4 +1,3 @@
-```markdown
 # CR: Planner-Generated D Profiling for Connector Topology Coverage
 
 ## CR ID
@@ -464,4 +463,3 @@ solutions:
 | The automation planner controls which D profiles run                      |
 | The solution-specific workload controls how each D profile is interpreted |
 | This keeps Relix automation scalable as connector count grows             |
-```
