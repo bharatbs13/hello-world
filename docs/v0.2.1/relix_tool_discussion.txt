@@ -221,6 +221,11 @@ Unique execution key = test_id + connector
 
 
 
+another requirement : Each  uat (execution id ) logs in log_dir and pass it through  Relix log analyser . 
+
+
+
+
 
 
 
