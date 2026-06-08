@@ -224,6 +224,27 @@ Unique execution key = test_id + connector
 another requirement : Each  uat (execution id ) logs in log_dir and pass it through  Relix log analyser . 
 
 
+UAT execution : No statefull for each test case , already fixed for v0.2 but follow this best practice 
+example for : automation/uat/v0_2/phase2/backend/feature/test_real_postgres_snapshot.py
+Yes. Best practice is:
+Each test should be independently runnable.
+No test should depend on another test’s side effects.
+So ideal Phase 2 design:
+P2-001 creates snapshot and validates completion
+P2-002 creates its own snapshot and checks row count
+P2-003 creates its own snapshot and checks integrity
+P2-004 creates its own snapshot and checks duplicates
+P2-005 creates its own clean multi-table snapshot
+Current design is more like UAT scenario steps:
+P2-001 setup/action
+P2-002/P2-003/P2-004 assertions on previous action
+That is acceptable for a scripted acceptance scenario, but not ideal for pytest-style independent tests.
+For now, minimal fix: clean target inside P2-005.
+Long-term fix: make every test self-contained.
+
+
+
+
 
 
 
