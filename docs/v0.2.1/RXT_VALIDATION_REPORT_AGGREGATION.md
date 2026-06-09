@@ -1,6 +1,6 @@
 # CR: Automated Validation Report Aggregation
 
-**CR ID:** `RELIX_AUTOMATION_REPORT_AGGREGATION`
+**CR ID:** `RELIX_AUTOMATION_VALIDATION_REPORT_AGGREGATION`
 
 **Target Version:** `v0.2.1`
 
@@ -8,15 +8,15 @@
 
 ---
 
-## Objective
+# Objective
 
 Automatically generate human-readable validation reports from available execution artifacts.
 
-The aggregation framework shall operate on a best-effort basis and generate release evidence even when only a subset of expected artifacts are present.
+The aggregation framework shall operate on a best-effort basis and generate release evidence even when only a subset of supported artifacts are present.
 
 ---
 
-## Scope
+# Scope
 
 Applicable to:
 
@@ -29,9 +29,9 @@ Applicable to:
 
 ---
 
-## Input Artifacts
+# Input Artifacts
 
-Aggregator consumes any available artifacts.
+The aggregator consumes any available execution artifacts.
 
 | Artifact               | Source           |
 | ---------------------- | ---------------- |
@@ -43,6 +43,48 @@ Aggregator consumes any available artifacts.
 
 Missing artifacts shall not fail aggregation.
 
+Unknown artifacts shall be ignored.
+
+Unknown artifacts shall not affect aggregation status.
+
+---
+
+# Run Metadata
+
+Every generated report shall include:
+
+| Field              |
+| ------------------ |
+| version            |
+| run_mode           |
+| run_id             |
+| generated_at       |
+| aggregation_status |
+
+Run metadata shall be included in both markdown and JSON outputs.
+
+---
+
+# Aggregation Status
+
+| Status   | Meaning                                                                      |
+| -------- | ---------------------------------------------------------------------------- |
+| COMPLETE | All discovered supported artifacts processed successfully                    |
+| PARTIAL  | One or more supported artifacts are missing for a discovered execution scope |
+| EMPTY    | No supported artifacts discovered                                            |
+| ERROR    | Aggregation execution failed                                                 |
+
+Examples:
+
+| Scenario                                                        | Status   |
+| --------------------------------------------------------------- | -------- |
+| Feature execution with valid report.xml present                 | COMPLETE |
+| Load execution with report.xml present and metrics.json missing | PARTIAL  |
+| No supported artifacts discovered                               | EMPTY    |
+| Aggregation terminated due to execution failure                 | ERROR    |
+
+Aggregation status shall be recorded in all generated markdown and JSON outputs.
+
 ---
 
 # Functional Aggregation
@@ -51,7 +93,6 @@ Applies to:
 
 ```text
 feature
-regression
 ```
 
 ---
@@ -62,8 +103,12 @@ Generated files:
 
 ```text
 feature_validation.md
-regression_validation.md
+feature_validation.json
 ```
+
+Markdown files are intended for release evidence and human review.
+
+JSON files are intended for machine-readable consumption, dashboards, automation, and future comparison workflows.
 
 ---
 
@@ -82,7 +127,7 @@ Example:
 
 ## Functional Metrics
 
-Only summary statistics:
+Only summary statistics shall be included.
 
 | Metric          |
 | --------------- |
@@ -92,7 +137,34 @@ Only summary statistics:
 | error           |
 | failed_case_ids |
 
-No per-test detail included in markdown.
+Per-test details shall not be included in markdown reports.
+
+---
+
+# Regression Aggregation
+
+Applies to:
+
+```text
+regression
+```
+
+Regression aggregation follows the same structure, dimensions, metrics, output formats, metadata requirements, aggregation status rules, and aggregation behavior defined for Functional Aggregation.
+
+Feature and Regression reports shall be generated independently.
+
+Aggregation logic may be shared internally; however, output artifacts shall remain separate and shall not be combined into a single report.
+
+---
+
+## Output
+
+Generated files:
+
+```text
+regression_validation.md
+regression_validation.json
+```
 
 ---
 
@@ -108,10 +180,11 @@ load
 
 ## Output
 
-Generated file:
+Generated files:
 
 ```text
 load_validation.md
+load_validation.json
 ```
 
 ---
@@ -127,7 +200,7 @@ One row per execution dimension set.
 
 ## Load Metrics
 
-Only execution metrics:
+Only execution metrics shall be included.
 
 | Metric          |
 | --------------- |
@@ -151,10 +224,11 @@ performance
 
 ## Output
 
-Generated file:
+Generated files:
 
 ```text
 performance_validation.md
+performance_validation.json
 ```
 
 ---
@@ -170,7 +244,7 @@ One row per execution dimension set.
 
 ## Performance Metrics
 
-Only execution metrics:
+Only execution metrics shall be included.
 
 | Metric          |
 | --------------- |
@@ -184,9 +258,13 @@ Only execution metrics:
 
 # Aggregation Dimensions
 
-The aggregator shall automatically include any dimensions available for the running version.
+The aggregator shall render all dimensions discovered in available metadata.
 
-### v0.2.0
+Unknown dimensions shall be appended automatically to summary tables where applicable.
+
+Examples:
+
+## v0.2.0
 
 | Dimension   |
 | ----------- |
@@ -195,9 +273,7 @@ The aggregator shall automatically include any dimensions available for the runn
 | repo_module |
 | solution    |
 
-### v0.2.1
-
-Adds:
+## v0.2.1
 
 | Dimension      |
 | -------------- |
@@ -206,9 +282,7 @@ Adds:
 | depth_id       |
 | tier           |
 
-### v0.2.2
-
-Adds:
+## v0.2.2
 
 | Dimension               |
 | ----------------------- |
@@ -216,31 +290,34 @@ Adds:
 | parallel_execution_mode |
 | vm_profile              |
 
-The aggregator must not hardcode dimensions by version. It should render any dimensions present in metadata.
+These examples are illustrative only and shall not restrict future dimension expansion.
 
 ---
 
 # Output Location
 
-For release evidence:
+Release evidence shall be stored under:
 
 ```text
 validation/
 └── releases/
-    └── v0.2.0/
+    └── <version>/
         ├── feature_validation.md
+        ├── feature_validation.json
         ├── regression_validation.md
+        ├── regression_validation.json
         ├── load_validation.md
-        └── performance_validation.md
+        ├── load_validation.json
+        ├── performance_validation.md
+        └── performance_validation.json
 ```
 
-For future releases:
+Examples:
 
 ```text
-validation/
-└── releases/
-    └── v0.2.1/
-    └── v0.2.2/
+validation/releases/v0.2.0/
+validation/releases/v0.2.1/
+validation/releases/v0.2.2/
 ```
 
 ---
@@ -250,13 +327,30 @@ validation/
 | Criteria                                              |
 | ----------------------------------------------------- |
 | Generate markdown automatically                       |
+| Generate JSON automatically                           |
 | Best-effort aggregation                               |
 | Missing artifacts do not fail aggregation             |
+| Unknown artifacts do not affect aggregation status    |
 | Separate reports per test scope                       |
 | Functional reports contain only validation statistics |
+| Regression reports contain only validation statistics |
 | Load reports contain execution metrics                |
 | Performance reports contain execution metrics         |
 | Automatically expands when new dimensions appear      |
 | Suitable for release evidence storage                 |
+| Suitable for machine-readable consumption             |
 
-This is the CR that would automate exactly the markdown files you are currently writing manually.
+---
+
+# Status
+
+```text
+Status: APPROVED
+Priority: High
+Target Version: v0.2.1
+Category: Reporting
+Implementation Risk: Low
+Backward Compatibility Risk: None
+Ready for Development: YES
+CR State: FROZEN
+```
