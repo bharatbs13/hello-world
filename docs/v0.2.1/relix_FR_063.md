@@ -1,35 +1,43 @@
-# FR-034 — Universal Connector Adapter Framework (`dlt` Integration)
+FR-034 — Universal Connector Adapter Framework
 
-## Phase
+Phase
 
-`v0.2.1`
+v0.2.1
 
-## Objective
+Objective
 
-Provide a universal connector adapter mechanism for Relix using `dlt` as an optional connector backend in order to reduce the implementation and maintenance burden of database-specific connectors while preserving Relix deterministic runtime semantics.
+Provide a universal connector adapter framework that allows Relix to integrate third-party connector ecosystems while preserving Relix deterministic runtime semantics.
 
-This framework allows Relix to support a broad range of source and destination systems without requiring native connector implementations for every database.
+The initial adapter implementation for FR-034 is DltConnectorAdapter.
 
----
+⸻
 
-## Scope
+Scope
 
 FR-034 introduces:
 
-* Optional `DltConnectorAdapter`
+* Universal connector adapter framework
 * Connector selection policy
+* Adapter registry
+* Supported Connector Registry
 * Native-preferred fallback semantics
-* Capability mapping between Relix and `dlt`
+* Capability mapping between Relix and adapter ecosystems
 * Runtime-safe adapter isolation
 * Optional dependency packaging
 
+Initial implementation:
+
+* DltConnectorAdapter
+
 FR-034 does NOT replace native Relix connectors.
 
----
+Native connectors remain first-class connector implementations within Relix.
 
-## Non-Goals
+⸻
 
-FR-035 does NOT delegate the following responsibilities to `dlt`:
+Non-Goals
+
+FR-034 does NOT delegate the following responsibilities to third-party adapters:
 
 * deterministic execution orchestration
 * execution checkpoints
@@ -42,11 +50,12 @@ FR-035 does NOT delegate the following responsibilities to `dlt`:
 
 Relix remains authoritative for all runtime semantics.
 
----
+⸻
 
-## Architectural Position
+Architectural Position
 
-```text
+FR-034 extends the connector framework established by FR-025.
+
                 ┌────────────────────┐
                 │ Relix Runtime Core │
                 └─────────┬──────────┘
@@ -56,53 +65,95 @@ Relix remains authoritative for all runtime semantics.
         ┌─────────────────┴─────────────────┐
         │                                   │
 ┌──────────────────┐             ┌────────────────────┐
-│ Native Connector │             │ DltConnectorAdapter │
-│ (Postgres etc.)  │             │ (universal backend) │
+│ Native Connector │             │ Adapter Framework  │
+│ (Postgres etc.)  │             │ (DltConnectorAdapter│
+│                  │             │       v1)          │
 └──────────────────┘             └────────────────────┘
-```
 
----
+Future adapter implementations (Airbyte, custom SDK, etc.) may be added in later releases.
 
-## Connector Selection Policy
+⸻
 
-### Default Policy
+Connector Selection Policy
+
+Default Policy
 
 Relix MUST prefer native connectors when available.
 
 Selection order:
 
 1. Native connector
-2. `DltConnectorAdapter`
+2. Compatible adapter connector
 3. Fail if no compatible connector exists
 
----
+⸻
 
-## Configuration
+Configuration
 
-### Example
+Example:
 
-```yaml
 connector_policy:
   mode: native_preferred
-  fallback_to_dlt: true
-```
+  allow_adapter_connectors: true
 
-### Supported Modes
+Supported Modes
 
-| Mode | Meaning |
-|---|---|
-| `native_only` | only native connectors allowed |
-| `dlt_only` | force `dlt` adapter |
-| `native_preferred` | native first, `dlt` fallback |
-| `dlt_fallback` | same as `native_preferred` |
+Mode	Meaning
+native_only	only native connectors allowed
+adapter_only	only adapter-backed connectors allowed
+native_preferred	native first, adapter fallback
+adapter_preferred	adapter first, native fallback
 
----
+⸻
 
-## DltConnectorAdapter
+Adapter Registry
 
-### Responsibilities
+Relix maintains a registry of supported adapter implementations.
 
-The adapter MAY use `dlt` for:
+Example:
+
+adapter_registry:
+  - dlt
+
+Future implementations may include additional adapters.
+
+⸻
+
+Supported Connector Registry
+
+The Supported Connector Registry applies to both native connectors and adapter-backed connectors.
+
+Adapter-backed connectors do not automatically become supported Relix connectors.
+
+Relix explicitly controls which connectors are exposed as supported connectors.
+
+Example:
+
+supported_connectors:
+  postgres:
+    enabled: true
+  mysql:
+    enabled: true
+  snowflake:
+    enabled: true
+
+Adapter capability does not imply Relix support.
+
+A connector is considered supported only when:
+
+* the adapter supports it (if adapter-backed)
+* Relix enables it
+* preflight validation succeeds
+
+⸻
+
+Initial Adapter Implementation
+
+DltConnectorAdapter
+
+Responsibilities
+
+DltConnectorAdapter MAY use dlt for:
 
 * extraction
 * loading
@@ -111,55 +162,72 @@ The adapter MAY use `dlt` for:
 * destination abstraction
 * incremental loading primitives
 
----
+⸻
 
-## Connector Interface Compliance
+Connector Interface Compliance
 
-`DltConnectorAdapter` MUST implement the Relix connector interface.
+All adapters MUST implement the Relix connector interface.
 
 Required methods include:
 
-* `connect()`
-* `disconnect()`
-* `validate_permissions()`
-* `read_batch()`
-* `write_batch()`
-* `begin_batch()`
-* `commit_batch()`
-* `rollback_batch()`
-* `discover_schema()`
-* `get_capabilities()`
+* connect()
+* disconnect()
+* validate_connectivity()
+* read_batch()
+* write_batch()
+* begin_batch()
+* commit_batch()
+* rollback_batch()
+* discover_schema()
+* get_capabilities()
 
----
+⸻
 
-## Runtime Isolation
+Runtime Isolation
 
-The adapter MUST NOT expose `dlt`-specific semantics into Relix runtime layers.
+Adapters MUST NOT expose adapter-specific semantics into Relix runtime layers.
 
 Relix runtime MUST remain backend-agnostic.
 
----
+⸻
 
-## Determinism Requirements
+Governance
 
-### Ordering
+Adapter-backed connectors are subject to the same:
+
+* preflight validation
+* checkpoint validation
+* replay validation
+* reconciliation validation
+
+requirements as native connectors.
+
+FR-034 governs connector availability only.
+
+Connector permissions and operational access control are explicitly out of scope and addressed by future FRs.
+
+⸻
+
+Determinism Requirements
+
+Ordering
 
 Relix runtime remains responsible for deterministic ordering.
 
-The adapter MUST NOT weaken:
+Adapters MUST NOT weaken:
 
 * deterministic pagination
 * ordering guarantees
 * replay consistency
 * reconciliation reproducibility
 
----
+⸻
 
-## Reconciliation
+Reconciliation
 
 Relix reconciliation engine remains authoritative.
 
-The adapter MAY provide helper metadata:
+Adapters MAY provide helper metadata:
 
 * counts
 * checksums
@@ -167,71 +235,78 @@ The adapter MAY provide helper metadata:
 
 but reconciliation decisions MUST remain inside Relix runtime.
 
----
+⸻
 
-## Execution Plans
+Execution Plans
 
 Frozen execution plans remain Relix-owned.
 
-The adapter MUST consume execution plans but MUST NOT mutate them.
+Adapters MUST consume execution plans but MUST NOT mutate them.
 
----
+⸻
 
-## Packaging
+Packaging
 
-`dlt` MUST remain an optional dependency.
+Adapter dependencies MUST remain optional.
 
-### Example
+Example:
 
-```text
 pip install relix[dlt]
-```
 
-Core Relix installation MUST NOT require `dlt`.
+Core Relix installation MUST NOT require adapter-specific dependencies.
 
----
+⸻
 
-## Capability Mapping
+Capability Mapping
 
-The adapter MUST expose capability translation between:
+Adapters MUST expose capability translation between:
 
 * Relix connector capabilities
-* `dlt` destination/source capabilities
+* Adapter destination/source capabilities
 
 Unsupported capabilities MUST fail during preflight.
 
----
+⸻
 
-## Failure Semantics
+Failure Semantics
 
-Connector failures originating from `dlt` MUST be translated into Relix runtime errors.
+Connector failures originating from adapters MUST be translated into Relix runtime errors.
 
-Raw `dlt` exceptions MUST NOT propagate beyond connector boundaries.
+Raw adapter exceptions MUST NOT propagate beyond connector boundaries.
 
----
+⸻
 
-## Security
+Security
 
-The adapter MUST support Relix credential providers and MUST NOT bypass Relix secret handling mechanisms.
+Adapters MUST support Relix credential providers and MUST NOT bypass Relix secret handling mechanisms.
 
----
+⸻
 
-## Acceptance Criteria
+Acceptance Criteria
 
 FR-034 is complete when:
 
-* `DltConnectorAdapter` exists
-* native connector fallback logic exists
-* connector selection policy exists
-* deterministic ordering guarantees remain intact
-* preflight validates adapter capabilities
-* reconciliation remains Relix-owned
-* optional dependency installation works
-* adapter tests pass for at least one non-native destination
+* Adapter framework exists
+* Adapter registry exists
+* Supported Connector Registry exists
+* Supported connector registry enforcement works
+* Adapter-backed connector selection works
+* Capability translation works
+* Preflight validates connector support
+* Native connector fallback logic exists
+* Deterministic ordering guarantees remain intact
+* Reconciliation remains Relix-owned
+* Optional dependency installation works
+* Adapter tests validate:
+    * source connectivity
+    * destination connectivity
+    * source-to-destination execution
+    * capability translation
+    * reconciliation compatibility
 
----
+⸻
 
-## Deferred Items
+Deferred Items
 
 The following are deferred beyond FR-034:
 
@@ -242,14 +317,20 @@ The following are deferred beyond FR-034:
 * distributed connector orchestration
 * connector auto-discovery marketplace
 
----
+⸻
 
-## References
+Runtime Guarantees Preserved
 
-* FR-026 Runtime & Execution Framework 
+Adapter-backed connectors must not weaken or bypass:
+
 * FR-028 Checkpoint Recovery Framework
 * FR-029 Reconciliation Runtime Framework
-* FR-030 Immutable Event History 
-* FR-032 Application Ports & Adapter Architecture
-* FR-033 Preflight Workflow Framework 
 
+⸻
+
+References
+
+* FR-025 Connector Integration & Expansion Framework
+* FR-026 Runtime & Execution Framework
+* FR-032 Application Ports & Adapter Architecture
+* FR-033 Preflight Workflow Framework
