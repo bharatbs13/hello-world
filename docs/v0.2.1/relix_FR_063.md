@@ -1,4 +1,4 @@
-# FR-063 — Universal Connector Adapter Framework (`dlt` Integration)
+# FR-034 — Universal Connector Adapter Framework (`dlt` Integration)
 
 ## Status
 
@@ -18,7 +18,7 @@ This framework allows Relix to support a broad range of source and destination s
 
 ## Scope
 
-FR-063 introduces:
+FR-034 introduces:
 
 * Optional `DltConnectorAdapter`
 * Connector selection policy
@@ -27,13 +27,13 @@ FR-063 introduces:
 * Runtime-safe adapter isolation
 * Optional dependency packaging
 
-FR-063 does NOT replace native Relix connectors.
+FR-034 does NOT replace native Relix connectors.
 
 ---
 
 ## Non-Goals
 
-FR-063 does NOT delegate the following responsibilities to `dlt`:
+FR-035 does NOT delegate the following responsibilities to `dlt`:
 
 * deterministic execution orchestration
 * execution checkpoints
@@ -222,7 +222,7 @@ The adapter MUST support Relix credential providers and MUST NOT bypass Relix se
 
 ## Acceptance Criteria
 
-FR-063 is complete when:
+FR-034 is complete when:
 
 * `DltConnectorAdapter` exists
 * native connector fallback logic exists
@@ -237,7 +237,7 @@ FR-063 is complete when:
 
 ## Deferred Items
 
-The following are deferred beyond FR-063:
+The following are deferred beyond FR-034:
 
 * streaming connectors
 * CDC semantics
@@ -250,10 +250,10 @@ The following are deferred beyond FR-063:
 
 ## References
 
-* FR-026 Runtime Foundation
-* FR-028 Execution Engine
-* FR-029 Reconciliation Engine
-* FR-030 Persistence Foundation
-* FR-032 Ports & Adapters
-* FR-033 Preflight Framework
+* FR-026 Runtime & Execution Framework 
+* FR-028 Checkpoint Recovery Framework
+* FR-029 Reconciliation Runtime Framework
+* FR-030 Immutable Event History 
+* FR-032 Application Ports & Adapter Architecture
+* FR-033 Preflight Workflow Framework 
 
