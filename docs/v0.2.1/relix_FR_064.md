@@ -1,9 +1,5 @@
 
-# FR-064 — Connector Access Control Framework
-
-## Status
-
-Proposed
+# FR-xxx — Connector Access Control Framework
 
 ## Phase
 
@@ -281,32 +277,9 @@ Relix SHOULD emit audit events for:
 
 ---
 
-## Relationship to Other FRs
-
-### FR-063
-
-```text
-DltConnectorAdapter MUST comply with FR-064.
-```
-
-### FR-066
-
-```text
-Transport validation remains independent
-from access-control validation.
-```
-
-### FR-033
-
-```text
-Preflight validation MUST enforce FR-064.
-```
-
----
-
 ## Acceptance Criteria
 
-FR-064 is complete when:
+FR-xxx is complete when:
 
 * connector roles exist
 * access_mode exists
