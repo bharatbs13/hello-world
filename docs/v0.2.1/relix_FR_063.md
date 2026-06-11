@@ -1,9 +1,5 @@
 # FR-034 — Universal Connector Adapter Framework (`dlt` Integration)
 
-## Status
-
-Proposed
-
 ## Phase
 
 `v0.2.1`
