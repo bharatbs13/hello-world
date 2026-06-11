@@ -1,8 +1,4 @@
-# FR-091 — Transport Encryption Validation Framework
-
-## Status
-
-Proposed
+# FR-037 — Transport Encryption Validation Framework
 
 ## Phase
 
@@ -20,7 +16,7 @@ The purpose of FR-091 is to validate encrypted transport during connector execut
 
 ## Scope
 
-FR-091 introduces:
+FR-037 introduces:
 
 * transport security configuration
 * connector transport capability declaration
@@ -29,7 +25,7 @@ FR-091 introduces:
 * transport-related execution blocking
 * transport security event reporting
 
-FR-091 applies to:
+FR-037 applies to:
 
 * native connectors
 * `dlt`-backed connectors
@@ -39,7 +35,7 @@ FR-091 applies to:
 
 ## Non-Goals
 
-FR-091 does NOT introduce:
+FR-037 does NOT introduce:
 
 * enterprise key management
 * certificate lifecycle management
@@ -222,9 +218,9 @@ Failure to satisfy required transport security MUST prevent execution.
 
 ---
 
-## `dlt`-backed Connectors
+## `adaptor`-backed Connectors
 
-`dlt`-backed connectors MUST expose transport configuration through Relix governance layers.
+`adaptor`-backed connectors MUST expose transport configuration through Relix governance layers.
 
 Transport enforcement MUST remain Relix-controlled.
 
@@ -232,7 +228,7 @@ Transport enforcement MUST remain Relix-controlled.
 
 ## Acceptance Criteria
 
-FR-091 is complete when:
+FR-037  is complete when:
 
 * transport configuration exists
 * connector capabilities expose transport support
@@ -260,10 +256,3 @@ The following are deferred:
 
 ---
 
-## References
-
-* FR-025 Connector Framework
-* FR-031 PostgreSQL Snapshot Execution
-* FR-033 Preflight Workflow Framework
-* FR-063 Universal Connector Adapter Framework
-* FR-064 Controlled `dlt` Governance & Access Framework
