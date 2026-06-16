@@ -1,0 +1,34 @@
+Correct — no RXTA architecture changes needed for v0.2.2 based on FR-038.
+
+RXTA already supports:
+
+governance-only functional UAT
+DB-independent tests
+suite metadata
+execution identity
+aggregation
+diagnostics
+traceability
+
+For v0.2.2 you only need test/catalog/config updates, not new CRs:
+
+1. Add FR-038 UAT test cases
+2. Add suite tags: smoke / sanity / feature
+3. Mark DB/connector/topology as not required where applicable
+4. Add license-specific test config fixtures
+5. Add pytest automation
+6. Ensure aggregation/reporting includes LICENSE / ENTITLEMENT classes
+
+So scope is:
+
+RXTA framework change: No
+RXTA catalog/config/test asset update: Yes
+Relix FR-038 UAT automation: Yes
+
+Key config pattern:
+
+requires_database: false
+requires_connector: false
+requires_topology: false
+
+That should be enough.
