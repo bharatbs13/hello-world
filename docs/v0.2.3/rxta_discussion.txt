@@ -44,5 +44,53 @@ Target: v0.2.3
 Name: Custom Benchmark Runtime Metadata
 
 
+Yes.
+
+In a later version, you can extend benchmark execution/reporting to:
+
+solution × num_cores
+
+or richer:
+
+domain × solution × topology_signature × depth_id × benchmark_type × profile × num_cores
+
+Example future config:
+
+runtime_dimensions:
+  num_cores:
+    values: [2, 4, 8, 16]
+
+Execution expansion:
+
+core_runtime × 2 cores
+core_runtime × 4 cores
+migration × 2 cores
+migration × 4 cores
+
+Report rows:
+
+Domain	Solution	D	Topology	Cores	Metric	SLA
+backend	core_runtime	D1	topo_core_d1	4	120 rps	PASS
+backend	migration	D2	topo_mig_d2	8	82 rps	PASS
+
+For current v0.2.1, keep num_cores as optional/future runtime metadata only.
+
+Target future scope:
+
+v0.2.3 — Custom Benchmark Runtime Dimensions
+
+Includes:
+
+num_cores
+load_tier
+parallel_mode
+vm_profile
+
+Rule:
+
+Reporter dumps these fields if present.
+No metric aggregation by default.
+
+
 
 
