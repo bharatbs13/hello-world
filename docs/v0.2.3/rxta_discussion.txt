@@ -1,0 +1,48 @@
+future custom benchmark runtime metadata, likely v0.2.3, not current P12 unless you want to pull it forward.
+For now define the future-safe rule:
+Load/performance CLI arguments may be captured as benchmark runtime metadata and reported as columns.
+Example future CLI:
+rxta benchmark --type load --vm-cores 8 --load-tier peak --parallel-mode worker_pool
+Execution metadata:
+benchmark_runtime_metadata:
+  vm_cores: 8
+  load_tier: peak
+  parallel_mode: worker_pool
+Report behavior:
+if metadata exists → include column
+if absent → omit or NOT_APPLICABLE
+Scope classification:
+v0.2.1 P12:
+  benchmark_catalog
+  sla_catalog
+  detail reporting identity
+
+v0.2.3:
+  custom benchmark CLI args
+  runtime metadata capture
+  dynamic report columns
+So yes, note it as:
+Deferred: Custom benchmark runtime dimensions from CLI
+Target: v0.2.3
+
+
+Yes — custom load/performance CLI dimensions are v0.2.3 scope, not required for current v0.2.1 remediation.
+Current v0.2.1 P12 should only ensure:
+benchmark catalog
+SLA catalog
+detail reporting
+no metric aggregation
+solution/topology/depth identity preserved
+Defer to v0.2.3:
+custom CLI args for benchmarks
+runtime metadata capture
+dynamic report columns
+vm_cores / load_tier / parallel_mode as CLI-provided fields
+So mark it:
+Deferred Enhancement
+Target: v0.2.3
+Name: Custom Benchmark Runtime Metadata
+
+
+
+
