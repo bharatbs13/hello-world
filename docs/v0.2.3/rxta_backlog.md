@@ -1,5 +1,3 @@
- Deferred Backlog (Low Priority Items) and remove them from v0.2.1 closure criteria.
-RXTA Deferred Backlog (Post v0.2.1)
 ID	CR	Item	Suggested Version
 BL-003	CR-016	Parallel execution uniqueness validation	v0.2.3
 BL-012	CR-024	Catalog lineage tracking	v0.2.3
