@@ -1,3 +1,4 @@
+
 # Relix v0.2.2 Functional UAT Specification
 
 ## 1. Scope
@@ -51,7 +52,16 @@ Functional UAT only.
 ## 3. Test Case ID Convention
 
 ```text
-UAT-V022-FUNC-<CLASS>-<NNN>
+<CLASS>-<NNN>
+```
+
+Version and suite scope are declared in automation metadata:
+
+```yaml
+suite_id: uat_v0.2.2
+product_version: v0.2.2
+fr_scope:
+  - FR-038
 ```
 
 ---
@@ -94,7 +104,7 @@ UAT Area 1 — License Validation
 
 Positive Functional Cases
 
-UAT-V022-FUNC-LICENSE-001 — Valid License Accepted
+LICENSE-001 — Valid License Accepted
 
 Class: LICENSE
 
@@ -113,7 +123,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-LICENSE-002 — Perpetual License Accepted
+LICENSE-002 — Perpetual License Accepted
 
 Class: LICENSE
 
@@ -132,7 +142,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-LICENSE-003 — Trial License Accepted
+LICENSE-003 — Trial License Accepted
 
 Class: LICENSE
 
@@ -153,7 +163,7 @@ Acceptance Criteria
 
 Negative Functional Cases
 
-UAT-V022-FUNC-LICENSE-004 — Expired License Rejected
+LICENSE-004 — Expired License Rejected
 
 Class: LICENSE
 
@@ -172,7 +182,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-LICENSE-005 — Invalid License Format Rejected
+LICENSE-005 — Invalid License Format Rejected
 
 Class: ERROR_SEMANTICS
 
@@ -191,11 +201,30 @@ Acceptance Criteria
 
 ---
 
+LICENSE-006 — License Not Required for Free Capability
+
+Class: CAPABILITY_AUTHORIZATION
+
+Condition
+Capability declares license_required: false. No entitlement exists.
+
+Description
+Validate that a capability with license_required: false is authorized without entitlement lookup.
+
+Acceptance Criteria
+
+· Authorization succeeds
+· No entitlement lookup is performed
+· Capability is granted
+· Audit metadata records license not required
+
+---
+
 UAT Area 2 — Entitlement Validation
 
 Positive Functional Cases
 
-UAT-V022-FUNC-ENTITLEMENT-001 — Entitlement Present Authorizes Capability
+ENTITLEMENT-001 — Entitlement Present Authorizes Capability
 
 Class: ENTITLEMENT
 
@@ -214,9 +243,28 @@ Acceptance Criteria
 
 ---
 
+ENTITLEMENT-005 — Entitlement Inherits Product Validity
+
+Class: ENTITLEMENT
+
+Condition
+Product license is valid (expires 2027-12-31). Entitlement exists with no expiry specified.
+
+Description
+Validate that an entitlement without explicit expiry inherits the product license validity.
+
+Acceptance Criteria
+
+· Authorization succeeds
+· Effective entitlement expiry equals product licence expiry
+· Audit metadata records inherited expiry
+· Validates AC12
+
+---
+
 Negative Functional Cases
 
-UAT-V022-FUNC-ENTITLEMENT-002 — Missing Entitlement Denies Capability
+ENTITLEMENT-002 — Missing Entitlement Denies Capability
 
 Class: ENTITLEMENT
 
@@ -235,7 +283,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-ENTITLEMENT-003 — Unknown Entitlement Ignored with Warning
+ENTITLEMENT-003 — Unknown Entitlement Ignored with Warning
 
 Class: ERROR_SEMANTICS
 
@@ -254,11 +302,30 @@ Acceptance Criteria
 
 ---
 
+ENTITLEMENT-004 — Duplicate Entitlement Normalized
+
+Class: ENTITLEMENT
+
+Condition
+License contains duplicate entitlement entries for the same capability.
+
+Description
+Validate that duplicate entitlements are normalized into a set and validation continues.
+
+Acceptance Criteria
+
+· Duplicate entitlements are normalized
+· Validation continues without error
+· One entitlement is applied
+· No conflict is generated
+
+---
+
 UAT Area 3 — Capability Authorization
 
 Positive Functional Cases
 
-UAT-V022-FUNC-CAPABILITY_AUTHORIZATION-001 — Future Capability Requires No Framework Modification
+CAPABILITY_AUTHORIZATION-001 — Future Capability Requires No Framework Modification
 
 Class: CAPABILITY_AUTHORIZATION
 
@@ -281,7 +348,7 @@ UAT Area 4 — Expiry and Grace Period
 
 Positive Functional Cases
 
-UAT-V022-FUNC-EXPIRY-001 — Grace Period Active Applies Configured Policy
+EXPIRY-001 — Grace Period Active Applies Configured Policy
 
 Class: EXPIRY
 
@@ -302,7 +369,7 @@ Acceptance Criteria
 
 Negative Functional Cases
 
-UAT-V022-FUNC-EXPIRY-002 — Grace Period Expired Denies Authorization
+EXPIRY-002 — Grace Period Expired Denies Authorization
 
 Class: EXPIRY
 
@@ -325,7 +392,7 @@ UAT Area 5 — Frozen Execution Protection
 
 Positive Functional Cases
 
-UAT-V022-FUNC-FREEZE_STABILITY-001 — Frozen Execution Continues After License Expiry
+FREEZE_STABILITY-001 — Frozen Execution Continues After License Expiry
 
 Class: FREEZE_STABILITY
 
@@ -344,7 +411,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-FREEZE_STABILITY-002 — Frozen Execution Continues After Entitlement Removal
+FREEZE_STABILITY-002 — Frozen Execution Continues After Entitlement Removal
 
 Class: FREEZE_STABILITY
 
@@ -367,7 +434,7 @@ UAT Area 6 — Observability
 
 Positive Functional Cases
 
-UAT-V022-FUNC-OBSERVABILITY-001 — License Validation Events Emitted
+OBSERVABILITY-001 — License Validation Events Emitted
 
 Class: OBSERVABILITY
 
@@ -386,7 +453,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-OBSERVABILITY-002 — License Expiry Event Emitted
+OBSERVABILITY-002 — License Expiry Event Emitted
 
 Class: OBSERVABILITY
 
@@ -404,7 +471,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-OBSERVABILITY-003 — Entitlement Denied Event Emitted
+OBSERVABILITY-003 — Entitlement Denied Event Emitted
 
 Class: OBSERVABILITY
 
@@ -422,7 +489,7 @@ Acceptance Criteria
 
 ---
 
-UAT-V022-FUNC-OBSERVABILITY-004 — Grace Period Event Emitted
+OBSERVABILITY-004 — Grace Period Event Emitted
 
 Class: OBSERVABILITY
 
@@ -445,7 +512,7 @@ UAT Area 7 — Auditability
 
 Positive Functional Cases
 
-UAT-V022-FUNC-AUDITABILITY-001 — License Decision Audit Metadata Generated
+AUDITABILITY-001 — License Decision Audit Metadata Generated
 
 Class: AUDITABILITY
 
@@ -468,52 +535,12 @@ Acceptance Criteria
 
 ---
 
-UAT Area 8 — Edge Cases
-
-UAT-V022-FUNC-ENTITLEMENT-004 — Duplicate Entitlement Normalized
-
-Class: ENTITLEMENT
-
-Condition
-License contains duplicate entitlement entries for the same capability.
-
-Description
-Validate that duplicate entitlements are normalized into a set and validation continues.
-
-Acceptance Criteria
-
-· Duplicate entitlements are normalized
-· Validation continues without error
-· One entitlement is applied
-· No conflict is generated
-
----
-
-UAT-V022-FUNC-LICENSE-006 — License Not Required for Free Capability
-
-Class: CAPABILITY_AUTHORIZATION
-
-Condition
-Capability declares license_required: false. No entitlement exists.
-
-Description
-Validate that a capability with license_required: false is authorized without entitlement lookup.
-
-Acceptance Criteria
-
-· Authorization succeeds
-· No entitlement lookup is performed
-· Capability is granted
-· Audit metadata records license not required
-
----
-
 Suite Mapping
 
-Suite UATs
-Smoke UAT-V022-FUNC-LICENSE-001, UAT-V022-FUNC-ENTITLEMENT-002
-Sanity Smoke + UAT-V022-FUNC-LICENSE-004, UAT-V022-FUNC-ENTITLEMENT-001, UAT-V022-FUNC-CAPABILITY_AUTHORIZATION-001, UAT-V022-FUNC-FREEZE_STABILITY-001, UAT-V022-FUNC-OBSERVABILITY-001, UAT-V022-FUNC-AUDITABILITY-001
-Full All UATs in this specification
+Suite Test Cases
+Smoke LICENSE-001, ENTITLEMENT-002
+Sanity Smoke + LICENSE-004, ENTITLEMENT-001, CAPABILITY_AUTHORIZATION-001, FREEZE_STABILITY-001, OBSERVABILITY-001, AUDITABILITY-001
+Full All test cases in this specification
 
 ---
 
@@ -522,33 +549,34 @@ Suite Summary
 Suite Count Relationship
 Smoke 2 Subset of Sanity / Full
 Sanity 8 Subset of Full
-Full 20 Complete coverage
+Full 21 Complete coverage
 
 ---
 
 Traceability
 
-UAT FR AC Area
-UAT-V022-FUNC-LICENSE-001 FR-038 — License Validation
-UAT-V022-FUNC-LICENSE-002 FR-038 — License Validation
-UAT-V022-FUNC-LICENSE-003 FR-038 — License Validation
-UAT-V022-FUNC-LICENSE-004 FR-038 — License Validation
-UAT-V022-FUNC-LICENSE-005 FR-038 — Error Semantics
-UAT-V022-FUNC-LICENSE-006 FR-038 — Capability Authorization
-UAT-V022-FUNC-ENTITLEMENT-001 FR-038 — Entitlement
-UAT-V022-FUNC-ENTITLEMENT-002 FR-038 — Entitlement
-UAT-V022-FUNC-ENTITLEMENT-003 FR-038 — Error Semantics
-UAT-V022-FUNC-ENTITLEMENT-004 FR-038 — Entitlement
-UAT-V022-FUNC-CAPABILITY_AUTHORIZATION-001 FR-038 AC8 Capability Authorization
-UAT-V022-FUNC-EXPIRY-001 FR-038 — Expiry
-UAT-V022-FUNC-EXPIRY-002 FR-038 — Expiry
-UAT-V022-FUNC-FREEZE_STABILITY-001 FR-038 — Freeze Stability
-UAT-V022-FUNC-FREEZE_STABILITY-002 FR-038 — Freeze Stability
-UAT-V022-FUNC-OBSERVABILITY-001 FR-038 — Observability
-UAT-V022-FUNC-OBSERVABILITY-002 FR-038 — Observability
-UAT-V022-FUNC-OBSERVABILITY-003 FR-038 — Observability
-UAT-V022-FUNC-OBSERVABILITY-004 FR-038 — Observability
-UAT-V022-FUNC-AUDITABILITY-001 FR-038 — Auditability
+Test Case FR AC Area
+LICENSE-001 FR-038 — License Validation
+LICENSE-002 FR-038 — License Validation
+LICENSE-003 FR-038 — License Validation
+LICENSE-004 FR-038 — License Validation
+LICENSE-005 FR-038 — Error Semantics
+LICENSE-006 FR-038 — Capability Authorization
+ENTITLEMENT-001 FR-038 — Entitlement
+ENTITLEMENT-002 FR-038 — Entitlement
+ENTITLEMENT-003 FR-038 — Error Semantics
+ENTITLEMENT-004 FR-038 — Entitlement
+ENTITLEMENT-005 FR-038 AC12 Entitlement
+CAPABILITY_AUTHORIZATION-001 FR-038 AC8 Capability Authorization
+EXPIRY-001 FR-038 — Expiry
+EXPIRY-002 FR-038 — Expiry
+FREEZE_STABILITY-001 FR-038 — Freeze Stability
+FREEZE_STABILITY-002 FR-038 — Freeze Stability
+OBSERVABILITY-001 FR-038 — Observability
+OBSERVABILITY-002 FR-038 — Observability
+OBSERVABILITY-003 FR-038 — Observability
+OBSERVABILITY-004 FR-038 — Observability
+AUDITABILITY-001 FR-038 — Auditability
 
 ---
 
@@ -557,13 +585,15 @@ Appendix A — Licensing UAT Reuse Strategy
 After FR-038, every future feature requires only 2 license tests:
 
 ```
-UAT-<FEATURE>-LIC-001: Entitlement present → PASS
-UAT-<FEATURE>-LIC-002: Entitlement absent → DENY
+<FEATURE>-LIC-001: Entitlement present → PASS
+<FEATURE>-LIC-002: Entitlement absent → DENY
 ```
 
 Example — FR-039 Parallelism:
 
-· UAT-PAR-LIC-001: Entitlement present → PASS
-· UAT-PAR-LIC-002: Entitlement absent → DENY
+· PAR-LIC-001: Entitlement present → PASS
+· PAR-LIC-002: Entitlement absent → DENY
 
 No need to re-test the entire license framework. FR-038 centralizes licensing UAT and makes future feature licensing nearly free.
+
+
