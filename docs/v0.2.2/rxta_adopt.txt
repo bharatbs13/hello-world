@@ -1,14 +1,3 @@
-Correct — no RXTA architecture changes needed for v0.2.2 based on FR-038.
-
-RXTA already supports:
-
-governance-only functional UAT
-DB-independent tests
-suite metadata
-execution identity
-aggregation
-diagnostics
-traceability
 
 For v0.2.2 you only need test/catalog/config updates, not new CRs:
 
