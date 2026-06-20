@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 GITHUB_BASE="https://github.com/bharatbs13"
 
 REPO_GIT="$1"
 BRANCH="$2"
 SRC_PATH="$3"
-MODE="$4"
+MODE="${4:-}"
 
 shift 4 || true
 ITEMS=("$@")
 
 if [ -z "$REPO_GIT" ] || [ -z "$BRANCH" ] || [ -z "$SRC_PATH" ] || [ -z "$MODE" ]; then
   echo "Usage: ./smart_partial_sync.sh <repo_git> <branch> <src_path> <--dry-run|--apply> <item1> [item2...]"
-  echo "Example:"
-  echo "./smart_partial_sync.sh relix.git dev/v0.2-runtime /Users/bharatsharma/Downloads/package_src --dry-run executor/runner.py"
   exit 1
 fi
 
@@ -49,6 +47,70 @@ case "$BRANCH" in
     ;;
 esac
 
+count_files() {
+  local path="$1"
+  if [ -d "$path" ]; then
+    find "$path" -type f | wc -l | tr -d ' '
+  elif [ -f "$path" ]; then
+    echo "1"
+  else
+    echo "0"
+  fi
+}
+
+show_snapshot() {
+  local label="$1"
+  local path="$2"
+
+  echo ""
+  echo "===== $label: $path ====="
+
+  if [ ! -e "$path" ]; then
+    echo "Path does not exist"
+    return
+  fi
+
+  echo "File count: $(count_files "$path")"
+
+  if [ -d "$path" ]; then
+    find "$path" -maxdepth 3 -type f | sort | head -50
+  else
+    ls -l "$path"
+  fi
+}
+
+resolve_target_path() {
+  local item="$1"
+  local base
+  base="$(basename "$item")"
+
+  if [ -e "$item" ]; then
+    echo "$item"
+    return
+  fi
+
+  if [[ "$item" == */* ]]; then
+    echo "$item"
+    return
+  fi
+
+  local found_count
+  found_count="$(find . -path "./.git" -prune -o -name "$base" -print | wc -l | tr -d ' ')"
+
+  if [ "$found_count" -eq 1 ]; then
+    find . -path "./.git" -prune -o -name "$base" -print | sed 's#^\./##'
+    return
+  fi
+
+  if [ "$found_count" -gt 1 ]; then
+    echo "ERROR: Ambiguous target name: $base" >&2
+    find . -path "./.git" -prune -o -name "$base" -print >&2
+    exit 1
+  fi
+
+  echo "$base"
+}
+
 echo "Removing old clone..."
 rm -rf "$REPO_DIR"
 
@@ -56,6 +118,9 @@ echo "Cloning $REPO_URL branch $BRANCH ..."
 git clone --branch "$BRANCH" "$REPO_URL" "$REPO_DIR"
 
 cd "$REPO_DIR"
+
+echo "Current branch:"
+git branch --show-current
 
 RSYNC_FLAGS=(-av)
 
@@ -66,91 +131,7 @@ else
   echo "Running in APPLY mode..."
 fi
 
-find_matches_by_name() {
-  local name="$1"
-  find . \
-    -path "./.git" -prune -o \
-    -name "$name" -print | sed 's#^\./##'
-}
-
-find_matches_by_dirname() {
-  local dirname="$1"
-  find . \
-    -path "./.git" -prune -o \
-    -type d -name "$dirname" -print | sed 's#^\./##'
-}
-
-resolve_target_path() {
-  local item="$1"
-  local base
-  local first_segment
-  local parent_path
-  local parent_base
-
-  base="$(basename "$item")"
-  first_segment="${item%%/*}"
-  parent_path="$(dirname "$item")"
-  parent_base="$(basename "$parent_path")"
-
-  # 1. Exact path exists
-  if [ -e "$item" ]; then
-    echo "$item"
-    return
-  fi
-
-  # 2. Basename exists uniquely
-  mapfile -t name_matches < <(find_matches_by_name "$base")
-
-  if [ ${#name_matches[@]} -eq 1 ]; then
-    echo "${name_matches[0]}"
-    return
-  fi
-
-  if [ ${#name_matches[@]} -gt 1 ]; then
-    echo "ERROR: Ambiguous basename target for: $item" >&2
-    printf '%s\n' "${name_matches[@]}" >&2
-    exit 1
-  fi
-
-  # 3. First path segment maps to unique existing repo folder
-  if [[ "$item" == */* ]]; then
-    mapfile -t first_matches < <(find_matches_by_dirname "$first_segment")
-
-    if [ ${#first_matches[@]} -eq 1 ]; then
-      echo "${first_matches[0]}/${item#*/}"
-      return
-    fi
-
-    if [ ${#first_matches[@]} -gt 1 ]; then
-      echo "ERROR: Ambiguous first-segment target for: $item" >&2
-      printf '%s\n' "${first_matches[@]}" >&2
-      exit 1
-    fi
-  fi
-
-  # 4. Parent folder maps uniquely
-  if [ "$parent_path" != "." ]; then
-    mapfile -t parent_matches < <(find_matches_by_dirname "$parent_base")
-
-    if [ ${#parent_matches[@]} -eq 1 ]; then
-      echo "${parent_matches[0]}/$base"
-      return
-    fi
-
-    if [ ${#parent_matches[@]} -gt 1 ]; then
-      echo "ERROR: Ambiguous parent-folder target for: $item" >&2
-      printf '%s\n' "${parent_matches[@]}" >&2
-      exit 1
-    fi
-  fi
-
-  # 5. No safe match: create using given path from repo root
-  echo "$item"
-}
-
 SYNCED_PATHS=()
-
-echo "Resolving sync targets..."
 
 for item in "${ITEMS[@]}"; do
   SRC_ITEM="$SRC_PATH/$item"
@@ -162,7 +143,13 @@ for item in "${ITEMS[@]}"; do
 
   TARGET_PATH="$(resolve_target_path "$item")"
 
-  echo "- $item -> $TARGET_PATH"
+  echo ""
+  echo "Syncing:"
+  echo "  source: $SRC_ITEM"
+  echo "  target: $TARGET_PATH"
+
+  show_snapshot "BEFORE target" "$TARGET_PATH"
+  show_snapshot "SOURCE" "$SRC_ITEM"
 
   if [ -d "$SRC_ITEM" ]; then
     mkdir -p "$TARGET_PATH"
@@ -178,8 +165,14 @@ for item in "${ITEMS[@]}"; do
       "$SRC_ITEM" "$TARGET_PATH"
   fi
 
+  show_snapshot "AFTER target" "$TARGET_PATH"
+
   SYNCED_PATHS+=("$TARGET_PATH")
 done
+
+echo ""
+echo "Git status after sync:"
+git status --short
 
 if [ "$MODE" = "--dry-run" ]; then
   echo "Dry run complete. No commit made."
@@ -187,9 +180,6 @@ if [ "$MODE" = "--dry-run" ]; then
   rm -rf "$REPO_DIR"
   exit 0
 fi
-
-echo "Git status:"
-git status --short
 
 if [ -z "$(git status --porcelain)" ]; then
   echo "No changes to commit."
@@ -199,12 +189,41 @@ if [ -z "$(git status --porcelain)" ]; then
 fi
 
 git add -A "${SYNCED_PATHS[@]}"
+
+echo ""
+echo "Staged changes:"
+git diff --cached --stat
+
 git commit -m "$COMMIT_MSG"
+
+LOCAL_COMMIT="$(git rev-parse HEAD)"
+
 git push origin "$BRANCH"
+
+echo ""
+echo "Verifying push..."
+git fetch origin "$BRANCH"
+
+REMOTE_COMMIT="$(git rev-parse "origin/$BRANCH")"
+
+if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
+  echo "ERROR: Push verification failed."
+  echo "Local : $LOCAL_COMMIT"
+  echo "Remote: $REMOTE_COMMIT"
+  exit 1
+fi
+
+echo "Push verified."
+echo "Committed and pushed:"
+git log -1 --oneline
+
+echo ""
+echo "Final clean status check:"
+git status --short
 
 cd ..
 
 echo "Deleting fresh clone..."
 rm -rf "$REPO_DIR"
 
-echo "Done. Selected files/folders synced to $BRANCH."
+echo "Done. Selected files/folders synced and verified on $BRANCH."
