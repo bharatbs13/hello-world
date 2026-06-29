@@ -1,16 +1,33 @@
 RXTA-BUG-022-001
-Title: Deploy fetch path persists/uses invalid GitHub PAT remote URL and leaks token in logs
+Title: Deploy Git auth persists invalid PAT remote URL and leaks token in logs
 
-Scope: v0.2.2 deploy hardening
+Severity: High
+Type: Functional + Security
 
 Issue:
-Initial clone can succeed with PAT, but later deploys fail on existing workspace because origin is stored as https://<PAT>@github.com/..., causing git fetch to request a password non-interactively.
+relix-deploy can store/use GitHub PAT in origin URL as:
+https://<PAT>@github.com/<org>/<repo>.git
 
-Security impact:
-PAT may be stored in git remote and exposed in logs.
+This breaks existing-repo fetch because Git treats PAT as username and asks for password. It also exposes PAT in deploy logs and git error output.
 
 Expected:
-Deploy must never persist PAT in origin URL. Use clean remote URL plus temporary credential mechanism, and redact token from all output.
+- Never print raw GITHUB_TOKEN / PAT.
+- Never store PAT in git remote URL.
+- Mask any token-like value in logs.
+- Log only:
+  GITHUB_TOKEN: set
+- Redact URLs as:
+  https://***@github.com/...
+  or
+  https://x-access-token:***@github.com/...
 
-Fix target:
-relix-deploy deploy Git source resolution for existing repo fetch path.
+Fix:
+Add a deploy log redaction helper and apply it to:
+- env/config echo
+- remote command logging
+- git stdout/stderr
+- exception/error messages
+- remote URL display
+
+Acceptance:
+No deploy output contains `ghp_`, `github_pat_`, or raw token substring.
