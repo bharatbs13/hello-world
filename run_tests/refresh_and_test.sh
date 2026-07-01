@@ -29,16 +29,21 @@ echo "Checking out branch: $BRANCH"
 git checkout "$BRANCH"
 
 echo "Selecting Python..."
-if command -v python3 >/dev/null 2>&1; then
-  PYTHON_BIN="python3"
-elif command -v python >/dev/null 2>&1; then
-  PYTHON_BIN="python"
+
+if [ -n "${PYTHON_BIN:-}" ]; then
+  if [ ! -x "$PYTHON_BIN" ]; then
+    echo "PYTHON_BIN is set but not executable: $PYTHON_BIN"
+    exit 1
+  fi
+elif command -v python3.12 >/dev/null 2>&1; then
+  PYTHON_BIN="python3.12"
+elif command -v python3.11 >/dev/null 2>&1; then
+  PYTHON_BIN="python3.11"
 else
-  echo "Python not found. Install Python 3 first."
-  exit 1
+  PYTHON_BIN="python3"
 fi
 
-echo "Using Python: $($PYTHON_BIN --version)"
+echo "Using Python: $("$PYTHON_BIN" --version)"
 
 echo "Creating virtual environment..."
 "$PYTHON_BIN" -m venv .venv
