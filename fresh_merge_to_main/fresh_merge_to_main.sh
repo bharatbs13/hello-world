@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-GITHUB_BASE="https://github.com/bharatbs13"
+GITHUB_BASE="${GITHUB_BASE:-https://github.com/bharatbs13}"
 
-REPO_GIT="$1"
-DEV_BRANCH="$2"
+REPO_GIT="${1:-}"
+DEV_BRANCH="${2:-}"
 
 if [ -z "$REPO_GIT" ] || [ -z "$DEV_BRANCH" ]; then
   echo "Usage: ./fresh_merge_to_main.sh <repo_git> <dev_branch>"
   echo "Example:"
   echo "./fresh_merge_to_main.sh relix.git dev/v0.2-runtime"
+  exit 1
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "git not found. Install Xcode Command Line Tools:"
+  echo "xcode-select --install"
   exit 1
 fi
 
@@ -27,6 +33,12 @@ cd "$REPO_DIR"
 
 echo "Fetching latest..."
 git fetch origin
+
+echo "Checking remote branch exists..."
+if ! git ls-remote --exit-code --heads origin "$DEV_BRANCH" >/dev/null 2>&1; then
+  echo "Remote branch not found: origin/$DEV_BRANCH"
+  exit 1
+fi
 
 echo "Checking out main..."
 git checkout main
