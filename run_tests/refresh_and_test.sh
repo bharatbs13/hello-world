@@ -28,9 +28,24 @@ cd "$REPO_DIR"
 echo "Checking out branch: $BRANCH"
 git checkout "$BRANCH"
 
+echo "Selecting Python..."
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  echo "Python not found. Install Python 3 first."
+  exit 1
+fi
+
+echo "Using Python: $($PYTHON_BIN --version)"
+
 echo "Creating virtual environment..."
-python -m venv .venv
+"$PYTHON_BIN" -m venv .venv
 source .venv/bin/activate
+
+echo "Upgrading pip..."
+python -m pip install --upgrade pip
 
 echo "Installing dependencies..."
 
@@ -49,13 +64,11 @@ if [ ! -f "requirements.txt" ] && [ ! -f "requirements-dev.txt" ]; then
   python -m pip install pytest
 fi
 
-
-
 echo "Installing package..."
 if [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
   python -m pip install -e .
 else
-  export PYTHONPATH="$(pwd):$PYTHONPATH"
+  export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 fi
 
 echo "Running tests..."
