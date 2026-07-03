@@ -4,7 +4,7 @@
 Deploy Git Authentication Persists Invalid PAT Remote, Leaks Credentials, and Does Not Recover Existing Workspace
 
 **Target Version**
-v0.2.2
+v0.2.1
 
 **Severity**
 High
