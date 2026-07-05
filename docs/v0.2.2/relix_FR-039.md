@@ -430,7 +430,6 @@ RELIX_REFRESH_INTERVAL=3600
 }
 ```
 
----
 
 ## Appendix D — Supported Deployment Models
 
