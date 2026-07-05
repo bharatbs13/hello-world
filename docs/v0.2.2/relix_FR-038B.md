@@ -4,7 +4,7 @@
 Approved
 
 ## Target Product Version
-v0.2.2 (or later)
+v0.2.2
 
 ## Objective
 Provide lifecycle management for product licenses and feature entitlements. The framework governs how license state evolves over time through renewal, replacement, upgrades, downgrades, suspensions, and revocations.
