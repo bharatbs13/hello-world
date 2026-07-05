@@ -1,4 +1,3 @@
-```markdown
 # FR-039 — Commercial Integration Hooks
 
 ## Status
@@ -443,4 +442,3 @@ RELIX_REFRESH_INTERVAL=3600
 | Development | Environment | Startup | None |
 | CI/CD | Environment | Startup | None |
 | Air-Gapped | File | Manual | None |
-```
