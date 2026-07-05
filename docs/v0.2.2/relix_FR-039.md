@@ -180,12 +180,12 @@ Relix shall support explicit entitlement refresh.
 
 **Refresh behavior:**
 - Shall provide refreshed license and entitlement state to FR-038B
-- FR-038B shall apply lifecycle state updates
+- FR-038B shall validate and apply lifecycle state updates
 - FR-038A shall consume the resulting current license state
-- Shall emit observable events
-- Shall maintain atomic state updates
+- Shall emit observable refresh events
+- Shall maintain atomic refresh delivery semantics
 - Shall not corrupt existing license state on failure
-
+  
 ---
 
 ## Usage Events
